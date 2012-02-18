@@ -81,31 +81,3 @@ module.exports =
       test.done()
 
 
-# Pathology = require "pathology"
-
-# One ugly-ish thing about pathology.
-# You've got to explicitly name your top-level
-# namespaces. Unlike Ember, Pathology isn't going
-# to go rooting around the global namespace looking
-# for your objects.
-Root = Pathology.Namespace.create("Root")
-
-# However, Pathology doesn't need you to explicitly name
-# your further nested namespaces. As long as all your objects
-# are connected to a root level Namespace.
-# You can even reference your objects elsewhere for convenience.
-Subspace = Root.Subspace = Pathology.Namespace.create()
-
-# Pathology provides a basic Object with extend/create semantics.
-Subspace.Thing = Pathology.Object.extend
-  initialize: (@properties={}) ->
-something = Subspace.Thing.create(property: "value")
-
-# And this all comes together for the final awesome-sauce.
-puts Subspace.Thing.toString()
-# => <Root.Subspace.Thing>
-puts something.toString()
-# => <Root.Subspace.Thing __#-9>
-
-#
-# Rejoice in your debugging :D

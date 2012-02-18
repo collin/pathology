@@ -7,15 +7,32 @@ Ember.js has AWESOME toString() support for objects. And I wanted some of that m
 Right now this only really does the following:
 
 
-    Pathology = require "pathology"
+    # Pathology = require "pathology"
 
-    NS = Pathology.Namespace.create("NS")
+    # One ugly-ish thing about pathology.
+    # You've got to explicitly name your top-level
+    # namespaces. Unlike Ember, Pathology isn't going
+    # to go rooting around the global namespace looking
+    # for your objects.
+    Root = Pathology.Namespace.create("Root")
 
-    NS.Thing = Pathology.Object.extend
-      constructor: (@properties) ->
+    # However, Pathology doesn't need you to explicitly name
+    # your further nested namespaces. As long as all your objects
+    # are connected to a root level Namespace.
+    # You can even reference your objects elsewhere for convenience.
+    Subspace = Root.Subspace = Pathology.Namespace.create()
 
-    something = NS.Thing.create(property: "value")
+    # Pathology provides a basic Object with extend/create semantics.
+    Subspace.Thing = Pathology.Object.extend
+      initialize: (@properties={}) ->
+    something = Subspace.Thing.create(property: "value")
 
-    something.toString()
+    # And this all comes together for the final awesome-sauce.
+    puts Subspace.Thing.toString()
+    # => <Root.Subspace.Thing>
+    puts something.toString()
+    # => <Root.Subspace.Thing __#-9>
+g
+    # Rejoice in your debugging :D
 
 
