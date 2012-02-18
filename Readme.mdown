@@ -32,7 +32,6 @@ Right now this only really does the following:
     # => <Root.Subspace.Thing>
     puts something.toString()
     # => <Root.Subspace.Thing __#-9>
-g
-    # Rejoice in your debugging :D
 
+# Rejoice in your debugging :D
 
