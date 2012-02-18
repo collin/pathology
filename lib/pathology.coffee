@@ -1,6 +1,7 @@
 puts = console.log
 {extend, any, map, isFunction, isObject} = require("underscore")
 
+# Simplistic Polyfill for Object.create taken from Mozilla documentation.
 Object.create ?= (object) ->
   ctor = ->
   if arguments.length > 1
@@ -8,15 +9,27 @@ Object.create ?= (object) ->
   ctor:: = object
   new ctor
 
-ID = 0
-id = (prefix="__#") -> "#{prefix}-#{ID++}"
 
-META_KEY = "_meta"
+# Internal Object Ids in Pathology increment to infinity.
+# And may be identified visually by pattern matching "_p-#XXX"
+ID = 0
+id = (prefix="_p") -> "#{prefix}-#{ID++}"
+
+# Pathology stashes some metadata on objects it creates and tracks
+# META_KEY is the key on the object being tracked. We make it a Patholgy
+# id with a special prefix for readability in the console while avoiding
+# conflicts with other libraries that might want to use the key "_meta"
+META_KEY = id("_meta")
+
+# The NAME and CONTAINER keys are stashed in the meta hash.
+# They are used in constructing object paths. When contstructing a
+# path we traverse UP the "_container" chain and join "_name"s with a "."
 NAME_KEY = "_name"
 CONTAINER_KEY = "_container"
 
-NamelessConstructorsExist = true
+# use Pathology.writeMeta and Pathology.readMeta to access Pathology metadata.
 
+# Pathology Meta data are IMMUTABLE. Write once and NEVER EVER WRITE AGAIN.
 writeMeta = (object, data={}) ->
   meta = object[META_KEY] ?= {}
   for key, value of data
@@ -24,6 +37,14 @@ writeMeta = (object, data={}) ->
 
 readMeta = (object, key) ->
   object[META_KEY]?[key]
+
+# nameWriter, nameFinder and findNames work as a team
+# to find Pathology constructors and namespaces and assign them
+# _name and _container metadata. These skip over various internal
+# and non/applicable objects. See the tests for expected behaviour
+
+# All namespaces are stashed in here:
+Namespaces = Object.create(null)
 
 nameWriter = (name, object, container) ->
   meta = {}
@@ -51,62 +72,28 @@ nameFinder = (namespace) ->
     else if object.__super__
       nameWriter name, object, namespace
 
-Namespaces = Object.create(null)
-
 findNames = ->
-  return if NamelessConstructorsExist is false
-  NamelessConstructorsExist = false
+  return if NamelessObjectsExist is false
+  NamelessObjectsExist = false
   for key, namespace of Namespaces
     nameFinder(namespace)
 
+# NamelessObjectsExist is a simple flag to tell us when there are
+# Constructors or Namespaces that don't have names. This way we only
+# have to traverse the object space when there are objects missing their
+# names.
+
+NamelessObjectsExist = true
 ctor = ->
+
 Bootstrap = Object.create
   descendants: []
 
-  _pushExtension: (extension) ->
-    @descendants.push extension
-    @__super__?._pushExtension(extension)
-
-  name: ->
-    findNames()
-    readMeta this, NAME_KEY
-
-  _path: ->
-    return [@name()] unless container = @_container()
-    container_path = container._path()
-    container_path.push @name()
-    container_path
-
-  path: ->
-    @_path().join(".")
-
-  objectId: -> readMeta this, "id"
-
-  toString: ->
-    if @hasOwnProperty("__super__")
-      "<#{@path()}>"
-    else
-      "<#{@constructor.path()} #{@objectId()}>"
-
-  _container: ->
-    findNames()
-    readMeta this, CONTAINER_KEY
-
-  create: ->
-    object = Object.create(this)
-    object.constructor = this
-    object[META_KEY] = undefined
-    @initialize.apply(object, arguments) if @initialize
-    writeMeta object, id: id()
-    object
-
-  constructed: (object) ->
-    object.constructor is @constructor
-
-  extend: (object={}) ->
-    NamelessConstructorsExist = true
+  # Extend an object.
+  extend: (extensions={}) ->
+    NamelessObjectsExist = true
     proto = Object.create(this)
-    extend proto, object
+    extend proto, extensions
     proto.constructor = this
     proto[META_KEY] = undefined
     extension = Object.create(proto)
@@ -117,7 +104,49 @@ Bootstrap = Object.create
     writeMeta extension, meta
     extension
 
+  # Create an object
+  create: ->
+    object = Object.create(this)
+    object.constructor = this
+    object[META_KEY] = undefined
+    @initialize.apply(object, arguments) if @initialize
+    writeMeta object, id: id()
+    object
+
+  objectId: -> readMeta this, "id"
+
+  toString: ->
+    if @hasOwnProperty("__super__")
+      "<#{@path()}>"
+    else
+      "<#{@constructor.path()} #{@objectId()}>"
+
+  name: ->
+    findNames()
+    readMeta this, NAME_KEY
+
+  path: ->
+    @_path().join(".")
+
+  constructed: (object) ->
+    object.constructor is @constructor
+
+  # NOT PUBLIC
   _readId: -> readMeta this, "id"
+
+  _container: ->
+    findNames()
+    readMeta this, CONTAINER_KEY
+
+  _path: ->
+    return [@name()] unless container = @_container()
+    container_path = container._path()
+    container_path.push @name()
+    container_path
+
+  _pushExtension: (extension) ->
+    @descendants.push extension
+    @__super__?._pushExtension(extension)
 
 Namespace = Bootstrap.extend
   initialize: (name) ->
@@ -127,7 +156,7 @@ Namespace = Bootstrap.extend
       meta[NAME_KEY] = name
       writeMeta this, meta
     else
-      NamelessConstructorsExist = true
+      NamelessObjectsExist = true
 
   name: ->
     findNames()
