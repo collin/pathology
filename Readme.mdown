@@ -1,0 +1,21 @@
+# Pathology
+
+### The scientific study of the nature of ~~disease~~ JavaScript and its causes, processes, development, and consequences.
+
+Ember.js has AWESOME toString() support for objects. And I wanted some of that magic sauce. But I'm not ready to commit to Ember.js for the project I'm working on, there is just too much existing code.
+
+Right now this only really does the following:
+
+
+    Pathology = require "pathology"
+
+    NS = Pathology.Namespace.create("NS")
+
+    NS.Thing = Pathology.Object.extend
+      constructor: (@properties) ->
+
+    something = NS.Thing.create(property: "value")
+
+    something.toString()
+
+

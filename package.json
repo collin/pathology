@@ -1,0 +1,20 @@
+{
+  "author": "Collin Miller <collintmiller@gmail.com>",
+  "name": "pathology",
+  "description": "A core Object model based on concepts from Ember.js",
+  "version": "0.1.0",
+  "repository": {
+    "url": ""
+  },
+  "main": "lib/pathology",
+  "scripts": {
+    "test": "nodeunit test/*"
+  },
+  "engines": {
+    "node": "~0.6.6"
+  },
+  "dependencies": {
+    "underscore": "latest"
+  },
+  "devDependencies": {}
+}
