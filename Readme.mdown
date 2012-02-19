@@ -29,9 +29,11 @@ something = Subspace.Thing.create(property: "value")
 
 # And this all comes together for the final awesome-sauce.
 puts Subspace.Thing.toString()
-# => <Root.Subspace.Thing>
+# => Root.Subspace.Thing
 puts something.toString()
-# => <Root.Subspace.Thing __#-9>
+# => <Root.Subspace.Thing:p-9>
+puts something.noSuchMethod()
+# => TypeError: Object <Root.Subspace.Thing:p-9> has no method 'notAMethod'
 ```
 # Rejoice in your debugging :D
 
