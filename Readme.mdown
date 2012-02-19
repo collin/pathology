@@ -6,6 +6,8 @@ Ember.js has AWESOME toString() support for objects. And I wanted some of that m
 
 Right now this only really does the following:
 
+### Pretty toString on objects.
+
 ```coffee
 # Pathology = require "pathology"
 
@@ -37,7 +39,8 @@ puts something.noSuchMethod()
 ```
 # Rejoice in your debugging :D
 
-As of 0.2.0 Pathology includes a simplistic mixin system. (no _super here, sorry)
+### Mixins
+Pathology includes a simplistic mixin system. (no _super here, sorry)
 
 Use it more or less like this
 
@@ -63,7 +66,48 @@ Root.Mixer.extended(Root.Mixable)
 # => true
 ```
 
+### Delegation
+Pathology Objects may define method and property delegation.
+Defining delegates looks like this:
+```coffee
+Awesome = Root.Awesome = Pathology.Object.extend
+  target:
+    foo: "foo"
+    bar: -> "bar"
+
+  other: ->
+    return biz: "biz", baz: -> "baz"
+
+Awesome.delegate "foo", "bar", to: "target"
+Awesome.delegate "biz", "baz", to: "other"
+```
+
+With this delegation setup we can call the following methods on an Awesom object.
+Pathology delegates will inspect the objects that are in the delegation chain
+and call methods if they are in the chain.
+
+Here are some calls to delegate methods and the equivalant manual access.
+
+```coffee
+awesome = Awesome.create()
+# awesome.foo() is the same as awesome.target.foo
+awesome.foo()
+# => "foo"
+# awesome.bar() is the same as awesome.target.bar()
+awesome.bar()
+# => "bar"
+# awesome.biz() is the same as awesome.other().biz
+awesome.biz()
+# => "biz"
+# awesome.baz() is the same as awesome.other().baz()
+awesome.baz()
+# => "baz"
+```
+
 # Changelog
+
+## 0.3.0
+* added a delegate mixin
 
 ## 0.2.0
 * mixin system

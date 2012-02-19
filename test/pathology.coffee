@@ -26,6 +26,12 @@ NS.Mixer = Pathology.Mixin.create
 
 NS.Mixer.extends(NS.Mixable)
 
+NS.Delegating = Pathology.Object.extend
+  initialize: (attrs) -> extend this, attrs
+
+NS.Delegating.delegate "field", to: "foo"
+NS.Delegating.delegate "a", "b", to: "bar"
+
 module.exports =
   "Object create/extend":
     "calls the constructor": (test) ->
@@ -110,6 +116,27 @@ module.exports =
     "instance is mixed into constructor prototype": (test) ->
       test.equal "INSTANCEVALUE", NS.Mixable.create().instanceKey
       test.done()
+
+  "Delegate":
+    setUp: (callback) ->
+      @subject = NS.Delegating.create
+        foo: field: "FIELD"
+        bar: (a: "PROP", b: -> "FUNCTION")
+
+      callback()
+
+    "delegates fields": (test) ->
+      test.equal "FIELD", @subject.field()
+      test.done()
+
+    "delegates multi": (test) ->
+      test.equal "PROP", @subject.a()
+      test.done()
+
+    "delegates to functions": (test) ->
+      test.equal "FUNCTION", @subject.b()
+      test.done()
+
 
 
 
