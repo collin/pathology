@@ -69,6 +69,7 @@ Root.Mixer.extended(Root.Mixable)
 ### Delegation
 Pathology Objects may define method and property delegation.
 Defining delegates looks like this:
+
 ```coffee
 Awesome = Root.Awesome = Pathology.Object.extend
   target:
