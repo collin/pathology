@@ -1,5 +1,5 @@
 puts = console.log
-{extend, any, map, isFunction, isObject} = require("underscore")
+{extend, any, map, include, isFunction, isObject, clone} = require("underscore")
 
 # Simplistic Polyfill for Object.create taken from Mozilla documentation.
 Object.create ?= (object) ->
@@ -13,7 +13,7 @@ Object.create ?= (object) ->
 # Internal Object Ids in Pathology increment to infinity.
 # And may be identified visually by pattern matching "_p-#XXX"
 ID = 0
-id = (prefix="_p") -> "#{prefix}-#{ID++}"
+id = (prefix="p-") -> "#{prefix}#{ID++}"
 
 # Pathology stashes some metadata on objects it creates and tracks
 # META_KEY is the key on the object being tracked. We make it a Patholgy
@@ -98,6 +98,7 @@ Bootstrap = Object.create
     proto[META_KEY] = undefined
     extension = Object.create(proto)
     extension.descendants = []
+    extension.mixins = clone(this.mixins ? [])
     extension.__super__ = this
     @_pushExtension(extension)
     meta = id: id()
@@ -117,9 +118,9 @@ Bootstrap = Object.create
 
   toString: ->
     if @hasOwnProperty("__super__")
-      "<#{@path()}>"
+      "#{@path()}"
     else
-      "<#{@constructor.path()} #{@objectId()}>"
+      "<#{@constructor.path()}:#{@objectId()}>"
 
   name: ->
     findNames()
@@ -164,7 +165,28 @@ Namespace = Bootstrap.extend
 
   _readName: ->
 
+Mixin = Bootstrap.extend
+  initialize: (config={}) ->
+    @included = config.included ? ->
+    @instance = config.instance ? {}
+    @static = config.static ? {}
+
+  extends: (constructor) ->
+    return if @extended(constructor)
+    constructor.mixins.push this
+    @included.call(constructor)
+
+    for key, value of @instance
+      constructor[key] = value
+
+    for key, value of @static
+      constructor[key] = value
+
+  extended: (constructor) ->
+    include(constructor.mixins, this)
+
 writeMeta Namespace, _name: "Namespace"
+writeMeta Namespace, _name: "Mixin"
 
 Pathology = module.exports = Namespace.create("Pathology")
 Pathology.id = id
@@ -172,4 +194,5 @@ Pathology.Object = Bootstrap
 Pathology.readMeta = readMeta
 Pathology.writeMeta = writeMeta
 Pathology.Namespace = Namespace
+Pathology.Mixin = Mixin
 

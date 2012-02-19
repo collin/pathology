@@ -2,7 +2,7 @@
   "author": "Collin Miller <collintmiller@gmail.com>",
   "name": "pathology",
   "description": "A core Object model based on concepts from Ember.js",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "repository": {
     "url": ""
   },

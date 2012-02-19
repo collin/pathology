@@ -1,5 +1,6 @@
 puts = console.log
 Pathology = require("./../lib/pathology")
+{extend} = require("underscore")
 
 NS = Pathology.Namespace.create("NS")
 
@@ -11,6 +12,19 @@ It.Static = "Electricity"
 
 Child = NS.It.Child = It.extend()
 Grandchild = NS.It.Child.Grandchild = Child.extend()
+
+NS.Mixable = Pathology.Object.extend()
+NS.Mixer = Pathology.Mixin.create
+  included: ->
+    @mixer = "Powerful Stuff"
+
+  static:
+    staticKey: "VALUE"
+
+  instance:
+    instanceKey: "INSTANCEVALUE"
+
+NS.Mixer.extends(NS.Mixable)
 
 module.exports =
   "Object create/extend":
@@ -42,12 +56,12 @@ module.exports =
 
     "object toString has constructor and objectid": (test) ->
       grandchild = Grandchild.create()
-      test.equal "<NS.It.Child.Grandchild #{grandchild.objectId()}>", grandchild.toString()
+      test.equal "<NS.It.Child.Grandchild:#{grandchild.objectId()}>", grandchild.toString()
       test.done()
 
     "constructor toString has constructor path": (test) ->
-      test.equal "<Pathology.Namespace>", Pathology.Namespace.toString()
-      test.equal "<NS.It.Child.Grandchild>", Grandchild.toString()
+      test.equal "Pathology.Namespace", Pathology.Namespace.toString()
+      test.equal "NS.It.Child.Grandchild", Grandchild.toString()
       test.done()
 
   "Namespace":
@@ -79,5 +93,28 @@ module.exports =
       test.equal "NS.Thingy.NS3.Fourth", NS.Thingy.NS3.Fourth.path()
       test
       test.done()
+
+  "Mixin":
+    "extended tests whether a mixin has been mixed into a constructor": (test) ->
+      test.ok NS.Mixer.extended(NS.Mixable)
+      test.done()
+
+    "included callback called when mixin mixed in": (test) ->
+      test.equal "Powerful Stuff", NS.Mixable.mixer
+      test.done()
+
+    "static is mixed into constructor": (test) ->
+      test.equal "VALUE", NS.Mixable.staticKey
+      test.done()
+
+    "instance is mixed into constructor prototype": (test) ->
+      test.equal "INSTANCEVALUE", NS.Mixable.create().instanceKey
+      test.done()
+
+
+
+
+
+
 
 

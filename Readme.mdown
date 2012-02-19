@@ -37,3 +37,36 @@ puts something.noSuchMethod()
 ```
 # Rejoice in your debugging :D
 
+As of 0.2.0 Pathology includes a simplistic mixin system. (no _super here, sorry)
+
+Use it more or less like this
+
+```coffee
+Root.Mixable = Pathology.Object.extend()
+Root.Mixer = Pathology.Mixin.create
+  included: ->
+    puts "included in Root.Mixable? ", this is Root.Mixable
+
+  static:
+    staticKey: "Static Value"
+
+  instance:
+    instanceKey: "Instance Value"
+
+Root.Mixer.extends(Root.Mixable)
+# "included in Root.Mixable? true"
+Root.Mixer.staticKey
+# => "Static Value"
+Root.Mixer.create().instanceKey
+# => "Instance Value"
+Root.Mixer.extended(Root.Mixable)
+# => true
+```
+
+# Changelog
+
+## 0.2.0
+* mixin system
+
+## 0.1.0
+* basic object system
