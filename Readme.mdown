@@ -163,5 +163,8 @@ on a child class, the value does not appear on the parent.
 * added a delegate mixin
 * inheritable attributes
 
+
 ## 0.1.0
 * basic object system
+
+
