@@ -1,5 +1,5 @@
 puts = console.log
-{extend, each, any, map, include, isFunction, isObject, clone} = require("underscore")
+{extend, each, any, map, include, clone, isFunction, isObject, clone} = require("underscore")
 
 # Simplistic Polyfill for Object.create taken from Mozilla documentation.
 Object.create ?= (object) ->
@@ -26,6 +26,9 @@ META_KEY = id("_meta")
 # path we traverse UP the "_container" chain and join "_name"s with a "."
 NAME_KEY = "_name"
 CONTAINER_KEY = "_container"
+MIXINS_KEY = "_mixins"
+DESCENDANTS_KEY = "_descendants"
+INHERITABLES_KEY = "_inheritableAttrs"
 
 # use Pathology.writeMeta and Pathology.readMeta to access Pathology metadata.
 
@@ -88,7 +91,39 @@ ctor = ->
 
 Bootstrap = Object.create
   descendants: []
-  mixins: []
+  inheritableAttrs: []
+
+  inheritableAttr: (name, starter) ->
+    unless @hasOwnProperty(name)
+      @inheritableAttrs.push(name)
+      @[name] = starter
+
+    return @[name]
+
+  writeInheritableAttr: (name, value, direct=true) ->
+    @inheritableAttr(name)
+    @[name] = value
+    if direct is true
+      for descendant in @descendants
+        descendant.writeInheritableAttr(name, value, false)
+    value
+
+  writeInheritableValue: (name, key, value, direct=true) ->
+    @inheritableAttr(name, {})[key] = value
+
+    if direct is true
+      for descendant in @descendants
+        descendant.writeInheritableValue(name, key, value, false)
+
+    value
+
+  pushInheritableItem: (name, item, direct=true) ->
+    @inheritableAttr(name, []).push item
+    if direct is true
+      for descendant in @descendants
+        descendant.pushInheritableItem(name, item, false)
+
+    item
 
   # Extend an object.
   extend: (extensions={}) ->
@@ -98,8 +133,12 @@ Bootstrap = Object.create
     proto.constructor = this
     proto[META_KEY] = undefined
     extension = Object.create(proto)
+    extension.inheritableAttrs = clone(@inheritableAttrs)
+    for name in @inheritableAttrs
+      continue unless @hasOwnProperty(name)
+      extension[name] = clone @[name]
+
     extension.descendants = []
-    extension.mixins = clone(this.mixins ? [])
     extension.__super__ = this
     @_pushExtension(extension)
     meta = id: id()
@@ -166,6 +205,8 @@ Namespace = Bootstrap.extend
 
   _readName: ->
 
+Bootstrap.inheritableAttr("mixins", [])
+
 Mixin = Bootstrap.extend
   initialize: (config={}) ->
     @included = config.included ? ->
@@ -174,7 +215,7 @@ Mixin = Bootstrap.extend
 
   extends: (constructor) ->
     return if @extended(constructor)
-    constructor.mixins.push this
+    constructor.pushInheritableItem "mixins", this
     @included.call(constructor)
 
     for key, value of @instance
@@ -203,9 +244,13 @@ Delegate = Mixin.create
 
           return value
 
+Property = Bootstrap.extend
+
+
 writeMeta Namespace, _name: "Namespace"
 writeMeta Mixin, _name: "Mixin"
 writeMeta Delegate, _name: "Delegate"
+writeMeta Property, _name: "Property"
 
 Delegate.extends(Bootstrap)
 
@@ -216,4 +261,5 @@ Pathology.readMeta = readMeta
 Pathology.writeMeta = writeMeta
 Pathology.Namespace = Namespace
 Pathology.Mixin = Mixin
+Pathology.Property = Property
 

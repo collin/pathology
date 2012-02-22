@@ -3,7 +3,7 @@ Pathology = require("./../lib/pathology")
 {extend} = require("underscore")
 
 NS = Pathology.Namespace.create("NS")
-
+O = Pathology.Object
 It = NS.It = Pathology.Object.extend
   initialize: (@property) ->
   someProp: "someValue"
@@ -68,6 +68,121 @@ module.exports =
     "constructor toString has constructor path": (test) ->
       test.equal "Pathology.Namespace", Pathology.Namespace.toString()
       test.equal "NS.It.Child.Grandchild", Grandchild.toString()
+      test.done()
+
+  "Object.writeInheritableAttrs":
+    "children inherit on extension": (test) ->
+      Parent = O.extend()
+      Parent.writeInheritableAttr("key", "value")
+      Child = Parent.extend()
+      test.equal "value", Child.key
+      test.done()
+
+    "children inherit after extension": (test) ->
+      Parent = O.extend()
+      Child = Parent.extend()
+      Parent.writeInheritableAttr("key", "value")
+      test.equal "value", Child.key
+      test.done()
+
+    "change in parent filters to children": (test) ->
+      Parent = O.extend()
+      Parent.writeInheritableAttr("key", "value")
+      Child = Parent.extend()
+      Parent.writeInheritableAttr("key2", "value")
+      test.equal "value", Child.key
+      test.done()
+
+    "parent doesn't inherit from child": (test) ->
+      Parent = O.extend()
+      Child = Parent.extend()
+      Child.writeInheritableAttr("key", "value")
+      test.equal undefined, Parent.key
+      test.done()
+
+    "change in child doesn't filter to parent": (test) ->
+      Parent = O.extend()
+      Child = Parent.extend()
+      Parent.writeInheritableAttr("key", "value")
+      Child.writeInheritableAttr("key2", "value")
+      test.equal undefined, Parent.key2
+      test.done()
+
+  "Object.writeInheritableValue":
+    "children inherit on extension": (test) ->
+      Parent = O.extend()
+      Parent.writeInheritableValue("family", "key", "value")
+      Child = Parent.extend()
+      test.equal "value", Child.family.key
+      test.done()
+
+    "children inhert after extension": (test) ->
+      Parent = O.extend()
+      Child = Parent.extend()
+      Parent.writeInheritableValue("family", "key", "value")
+      test.equal "value", Child.family.key
+      test.done()
+
+    "change in parent filters to children": (test) ->
+      Parent = O.extend()
+      Parent.writeInheritableValue("ns", "key", "value")
+      Child = Parent.extend()
+      Parent.writeInheritableValue("ns", "key2", "value2")
+      test.equal "value2", Child.ns.key2
+      test.done()
+
+    "parent doesn't inherit from child": (test) ->
+      Parent = O.extend()
+      Child = Parent.extend()
+      Child.writeInheritableValue("ns", "key", "value")
+      test.equal undefined, Parent.ns
+      test.done()
+
+    "change in child doesn't filter to parent": (test) ->
+      Parent = O.extend()
+      Child = Parent.extend()
+      Parent.writeInheritableValue("world", "key", "value")
+      Child.writeInheritableValue("world", "key2", "value")
+      test.equal undefined, Parent.world.key2
+      test.done()
+
+  "Object.pushInheritableItem":
+    "children inherit on extension": (test) ->
+      Parent = O.extend()
+      Parent.pushInheritableItem("list", "value")
+      Child = Parent.extend()
+      test.deepEqual ["value"], Child.list
+      test.done()
+
+    "children inhert after extension": (test) ->
+      Parent = O.extend()
+      Child = Parent.extend()
+      Parent.pushInheritableItem("list", "value")
+      test.deepEqual ["value"], Child.list
+      test.done()
+
+    "change in parent filters to children": (test) ->
+      Parent = O.extend()
+      Parent.pushInheritableItem("list", "value")
+      Child = Parent.extend()
+      Parent.pushInheritableItem("list", "value2")
+      test.deepEqual ["value", "value2"], Child.list
+      test.deepEqual ["value", "value2"], Parent.list
+      test.done()
+
+    "parent doesn't inherit from child": (test) ->
+      Parent = O.extend()
+      Child = Parent.extend()
+      Child.pushInheritableItem("list", "value")
+      test.equal undefined, Parent.list
+      test.done()
+
+    "change in child doesn't filter to parent": (test) ->
+      Parent = O.extend()
+      Parent.pushInheritableItem("list", "value")
+      Child = Parent.extend()
+      Child.pushInheritableItem("list", "value2")
+      test.deepEqual ["value"], Parent.list
       test.done()
 
   "Namespace":
