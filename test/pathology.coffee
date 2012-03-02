@@ -57,7 +57,7 @@ module.exports =
       test.done()
 
     "names items": (test) ->
-      test.equal "It", It.name()
+      test.equal "It", It._name()
       test.done()
 
     "object toString has constructor and objectid": (test) ->
@@ -146,6 +146,47 @@ module.exports =
       test.equal undefined, Parent.world.key2
       test.done()
 
+NS.Props = O.extend()
+NS.Props.property('aProperty')
+module.exports = extend exports,
+  "properties":
+    "reflection": (test) ->
+      test.equal Pathology.Property, NS.Props.properties.aProperty.constructor 
+      test.done()
+
+    "creates property method on instance": (test) ->
+      test.equal Pathology.Property.Instance, NS.Props.create().aProperty.constructor
+      test.done()
+
+    "basic property has a reader/writer": (test) ->
+      o =  NS.Props.create()
+      o.aProperty.set("value")
+      test.equal "value", o.aProperty.get()
+      test.done()
+
+  "propertiesThatCouldBe":
+    "returns a list of properties that couldBe": (test) ->
+      o = NS.Props.create()
+      could = o.propertiesThatCouldBe('aProperty')
+      test.deepEqual [o.aProperty], could
+      test.done()
+
+  "readPath":
+    "reads a property": (test) ->
+      it = NS.Props.create()
+      it.aProperty.set("value")
+      test.equal "value", it.readPath ["aProperty"]
+      test.done()
+
+    "reads a property through properties": (test) ->
+      it = NS.Props.create()
+      other = NS.Props.create()
+      it.aProperty.set(other)
+      other.aProperty.set("value")
+
+      test.equal "value", it.readPath ["aProperty", "aProperty"]
+      test.done()
+
   "Object.pushInheritableItem":
     "children inherit on extension": (test) ->
       Parent = O.extend()
@@ -187,7 +228,7 @@ module.exports =
 
   "Namespace":
     "namespaces are given a name": (test) ->
-      test.equal "NS", NS.name()
+      test.equal "NS", NS._name()
       test.done()
 
     "registers constructors in the namespace": (test) ->
@@ -200,7 +241,7 @@ module.exports =
 
     "nested namespaces nest paths deeply, and don't require a name": (test) ->
       NS.NS2 = Pathology.Namespace.create()
-      test.equal "NS2", NS.NS2.name()
+      test.equal "NS2", NS.NS2._name()
       test.equal "NS.NS2", NS.NS2.path()
       test.done()
 
@@ -208,8 +249,8 @@ module.exports =
       NS.Thingy = Pathology.Object.extend()
       NS.Thingy.NS3 = Pathology.Namespace.create()
       NS.Thingy.NS3.Fourth = Pathology.Object.extend()
-      NS.Thingy.NS3.name()
-      test.equal "NS3", NS.Thingy.NS3.name()
+      NS.Thingy.NS3._name()
+      test.equal "NS3", NS.Thingy.NS3._name()
       test.equal "NS.Thingy.NS3", NS.Thingy.NS3.path()
       test.equal "NS.Thingy.NS3.Fourth", NS.Thingy.NS3.Fourth.path()
       test

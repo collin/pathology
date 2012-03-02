@@ -1,5 +1,5 @@
 puts = console.log
-{extend, each, any, map, include, clone, isFunction, isObject, clone} = require("underscore")
+{extend, each, any, map, include, clone, isFunction, isObject, clone, defer} = require("underscore")
 
 # Simplistic Polyfill for Object.create taken from Mozilla documentation.
 Object.create ?= (object) ->
@@ -125,6 +125,16 @@ Bootstrap = Object.create
 
     item
 
+  property: (name) ->
+    Property.create(name, this)
+
+  propertiesThatCouldBe: (test) ->
+    hits = []
+    for name, property of @constructor.properties
+      next unless property.couldBe(test)
+      hits.push @[name]
+    hits
+
   # Extend an object.
   extend: (extensions={}) ->
     NamelessObjectsExist = true
@@ -143,6 +153,9 @@ Bootstrap = Object.create
     @_pushExtension(extension)
     meta = id: id()
     writeMeta extension, meta
+    # defer ->
+    #   findNames()
+    #   extension.name = extension.toString
     extension
 
   # Create an object
@@ -150,8 +163,10 @@ Bootstrap = Object.create
     object = Object.create(this)
     object.constructor = this
     object[META_KEY] = undefined
-    @initialize.apply(object, arguments) if @initialize
     writeMeta object, id: id()
+    object.constructor.name = object.constructor.toString()
+    @initialize.apply(object, arguments) if @initialize
+    object._createProperties()
     object
 
   objectId: -> readMeta this, "id"
@@ -162,9 +177,10 @@ Bootstrap = Object.create
     else
       "<#{@constructor.path()}:#{@objectId()}>"
 
-  name: ->
-    findNames()
-    readMeta this, NAME_KEY
+  readPath: (path) ->
+    target = this
+    (target = target[segment].get()) for segment in path
+    target
 
   path: ->
     @_path().join(".")
@@ -173,6 +189,14 @@ Bootstrap = Object.create
     object.constructor is @constructor
 
   # NOT PUBLIC
+  _createProperties: ->
+    for key, value of @constructor.properties ? {}
+      @[key] = value.instance()
+
+  _name: ->
+    findNames()
+    readMeta this, NAME_KEY
+
   _readId: -> readMeta this, "id"
 
   _container: ->
@@ -180,9 +204,9 @@ Bootstrap = Object.create
     readMeta this, CONTAINER_KEY
 
   _path: ->
-    return [@name()] unless container = @_container()
+    return [@_name()] unless container = @_container()
     container_path = container._path()
-    container_path.push @name()
+    container_path.push @_name()
     container_path
 
   _pushExtension: (extension) ->
@@ -245,12 +269,32 @@ Delegate = Mixin.create
           return value
 
 Property = Bootstrap.extend
+  Instance: Bootstrap.extend
+    get: -> @value
+    set: (value) -> @value = value
+
+  initialize: (@name, @_constructor) ->
+    @_constructor.writeInheritableValue 'properties', @name, this
+
+  couldBe: (test) ->
+    return true if test is @name
+    false
+
+  instance: -> @Instance.create()
+  #   @appendFeatures()
+
+  # appendFeatures: ->
+  #   key = @key
+  #   @_constructor[@name] = (value) ->
+  #     if not(value) then return @[key] else @[key] = value
+
 
 
 writeMeta Namespace, _name: "Namespace"
 writeMeta Mixin, _name: "Mixin"
 writeMeta Delegate, _name: "Delegate"
 writeMeta Property, _name: "Property"
+writeMeta Property.Instance, _name: "Instance"
 
 Delegate.extends(Bootstrap)
 

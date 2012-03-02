@@ -4,7 +4,7 @@
 
 ```coffee
 puts = console.log
-````
+```
 
 Ember.js has AWESOME toString() support for objects. And I wanted some of that magic sauce. But I'm not ready to commit to Ember.js for the project I'm working on, there is just too much existing code.
 
@@ -42,6 +42,119 @@ puts something.noSuchMethod()
 # => TypeError: Object <Root.Subspace.Thing:p-9> has no method 'notAMethod'
 ```
 # Rejoice in your debugging :D
+
+### Inheritable Attributes
+This one is inspired by an old feature of Rails.
+
+Sometimes you're making a configuration on a class that you want to propagate
+to all its subclasses. And you also want to extend that configuration in
+the subclasses. An example might be a list of attributes. With ineritable attributes
+you might implement this:
+
+```coffee
+Model = Root.Model = Pathology.Object.extend
+Model.pushInheritableItem "fields", "id"
+Model.pushInheritableItem "fields", "name"
+
+Describable = Model.Describable = Model.extend()
+Describable.pushInheritableItem "fields", "description"
+
+puts Model.fields
+# => ["id", "name"]
+puts Describable.fields
+# => ["id", "name", "description"]
+```
+
+This can be handy.
+
+There are three methods for dealing with inheritable attributes:
+
+* writeInheritableAttr(slot, value)
+* writeInheritableValue(slot, key, value)
+* pushInheritableItem(slot, item)
+
+Use them like so:
+```coffee
+Model.writeInheritableAttr("slot", "value")
+puts Describable.slot
+# => "value"
+Model.writeInheritableValue("family", "name", "Stanislov")
+puts Describable.family.name
+# => "Stasilov"
+Model.pushInheritableItem("fields", "extras")
+puts Describable.fields
+# => ["id", "name", "description", "extras"]
+```
+
+With writeInheritableValue, and pushInheritableitem, when you add a value to a slot
+on a child class, the value does not appear on the parent.
+
+### Properties
+
+Pathology allows you to create properties on your objects.
+
+Properties are defined on a constructor. Under the hood properties
+are stored in an Inheritable Attribute, so ancestors will have the
+properties of their parents.
+
+```coffee
+Root.Subspace.Thing.property('aProperty')
+```
+
+And property configurations are reflected.
+
+```coffee
+Root.Subspace.Thing.properties.aProperty
+# => <Pathology.Property:p-23>
+```
+
+Property instances are created after the initialize method.
+
+```coffee
+Root.Subspace.Thing.create().aProperty
+# => <Pathology.Property.Instance:p-24>
+```
+
+##### propertiesThatCouldBe
+A Pathology object has a special accessor for properties: 'propertiesThatCouldBe'
+This iterates over all properties of the object and tests their 'couldBe' method
+against a test value. For the vanilla Pathology.Property this is just a 
+check against the property name.
+
+
+##### Extending Pathology.Property
+Pathology.Property follows a simple interface. The core property implementation
+is the following:
+
+```coffee
+Property = Pathology.Object.extend
+  Instance: Pathology.Object.extend
+    get: -> @value
+    set: (value) -> @value = value
+
+  initialize: (@name, @_constructor) ->
+    @_constructor.writeInheritableValue 'properties', @name, this
+
+  couldBe: (test) ->
+    return true if test is @name
+    false
+
+  instance: -> @Instance.create()
+
+```
+
+If you extend Pathology.Property you will most likely be working on the
+Instance. See this example from Taxi, an event binding library,
+
+```coffee
+Taxi.Property = Pathology.Property.extend
+  Instance: Pathology.Property.Instance.extend
+    set: (value) ->
+      return value if value is @value
+      @value = value
+      @trigger "change"
+      value
+```
 
 ### Mixins
 Pathology includes a simplistic mixin system. (no _super here, sorry)
@@ -107,53 +220,22 @@ awesome.biz()
 # awesome.baz() is the same as awesome.other().baz()
 awesome.baz()
 # => "baz"
-```
+```Property = Bootstrap.extend
+  Instance: Bootstrap.extend
+    get: -> @value
+    set: (value) -> @value = value
 
-### Inheritable Attributes
-This one is inspired by an old feature of Rails.
+  initialize: (@name, @_constructor) ->
+    @_constructor.writeInheritableValue 'properties', @name, this
 
-Sometimes you're making a configuration on a class that you want to propagate
-to all its subclasses. And you also want to extend that configuration in
-the subclasses. An example might be a list of attributes. With ineritable attributes
-you might implement this:
+  couldBe: (test) ->
+    return true if test is @name
+    false
 
-```coffee
-Model = Root.Model = Pathology.Object.extend
-Model.pushInheritableItem "fields", "id"
-Model.pushInheritableItem "fields", "name"
+  instance: -> @Instance.create()
 
-Describable = Model.Describable = Model.extend()
-Describable.pushInheritableItem "fields", "description"
 
-puts Model.fields
-# => ["id", "name"]
-puts Describable.fields
-# => ["id", "name", "description"]
-```
 
-This can be handy.
-
-There are three methods for dealing with inheritable attributes:
-
-* writeInheritableAttr(slot, value)
-* writeInheritableValue(slot, key, value)
-* pushInheritableItem(slot, item)
-
-Use them like so:
-```coffee
-Model.writeInheritableAttr("slot", "value")
-puts Describable.slot
-# => "value"
-Model.writeInheritableValue("family", "name", "Stanislov")
-puts Describable.family.name
-# => "Stasilov"
-Model.pushInheritableItem("fields", "extras")
-puts Describable.fields
-# => ["id", "name", "description", "extras"]
-```
-
-With writeInheritableValue, and pushInheritableitem, when you add a value to a slot
-on a child class, the value does not appear on the parent.
 
 # Changelog
 
