@@ -45,7 +45,7 @@ puts something.noSuchMethod()
 Stack trace pulled from Taxi, an event library built on Pathology:
 (slightly doctored for visual appeal to show off toString goodness)
 
-'''
+```
 Error: Rejoice in your debugging! :D
   at                                          (taxi/lib/taxi.coffee:88:17)
   at     Array.map                            (native)
@@ -57,7 +57,7 @@ Error: Rejoice in your debugging! :D
   at     NS.Evented.bindPath                  (taxi/lib/taxi.coffee:173:17)
   at     Object.<anonymous>                   (taxi/test/taxi.coffee:140:21)
   at     Object.<anonymous>                   (nodeunit/lib/core.js:233:16)
-'''
+```
 
 ### Inheritable Attributes
 This one is inspired by an old feature of Rails.
