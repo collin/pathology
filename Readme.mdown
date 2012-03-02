@@ -220,22 +220,7 @@ awesome.biz()
 # awesome.baz() is the same as awesome.other().baz()
 awesome.baz()
 # => "baz"
-```Property = Bootstrap.extend
-  Instance: Bootstrap.extend
-    get: -> @value
-    set: (value) -> @value = value
-
-  initialize: (@name, @_constructor) ->
-    @_constructor.writeInheritableValue 'properties', @name, this
-
-  couldBe: (test) ->
-    return true if test is @name
-    false
-
-  instance: -> @Instance.create()
-
-
-
+```
 
 # Changelog
 
