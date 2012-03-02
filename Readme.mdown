@@ -239,14 +239,13 @@ awesome.baz()
 
 # Changelog
 
-## 0.4.0
-* inheritable attributes
-
-## 0.3.0
-* added a delegate mixin
-
 ## 0.2.0
 * mixin system
+* added a delegate mixin
+* inheritable attributes
+* pathology properties
 
 ## 0.1.0
 * basic object system
+
+
