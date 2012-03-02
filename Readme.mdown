@@ -74,6 +74,7 @@ There are three methods for dealing with inheritable attributes:
 * pushInheritableItem(slot, item)
 
 Use them like so:
+
 ```coffee
 Model.writeInheritableAttr("slot", "value")
 puts Describable.slot
