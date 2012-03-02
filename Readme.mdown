@@ -41,7 +41,23 @@ puts something.toString()
 puts something.noSuchMethod()
 # => TypeError: Object <Root.Subspace.Thing:p-9> has no method 'notAMethod'
 ```
-# Rejoice in your debugging :D
+
+Stack trace pulled from Taxi, an event library built on Pathology:
+(slightly doctored for visual appeal to show off toString goodness)
+
+'''
+Error: Rejoice in your debugging! :D
+  at                                          (taxi/lib/taxi.coffee:88:17)
+  at     Array.map                            (native)
+  at                                          (taxi/node_modules/underscore/underscore.js:95:56)
+  at     Taxi.Path.readToSegment              (taxi/lib/taxi.coffee:86:35)
+  at     Taxi.Segment.readSourceProperties    (taxi/lib/taxi.coffee:140:48)
+  at     Taxi.Segment.rebind                  (taxi/lib/taxi.coffee:117:12)
+  at     Taxi.Path.addSegment                 (taxi/lib/taxi.coffee:69:16)
+  at     NS.Evented.bindPath                  (taxi/lib/taxi.coffee:173:17)
+  at     Object.<anonymous>                   (taxi/test/taxi.coffee:140:21)
+  at     Object.<anonymous>                   (nodeunit/lib/core.js:233:16)
+'''
 
 ### Inheritable Attributes
 This one is inspired by an old feature of Rails.
