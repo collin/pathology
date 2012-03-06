@@ -43,6 +43,8 @@ module.exports =
       test.done()
 
     "prototype slots are passed through multiple levels": (test) ->
+      test.equal "someValue", It.create().someProp
+      test.equal "someValue", Child.create().someProp
       test.equal "someValue", Grandchild.create().someProp
       test.done()
 
@@ -62,6 +64,7 @@ module.exports =
 
     "object toString has constructor and objectid": (test) ->
       grandchild = Grandchild.create()
+      test.ok grandchild.objectId() isnt undefined
       test.equal "<NS.It.Child.Grandchild:#{grandchild.objectId()}>", grandchild.toString()
       test.done()
 
@@ -148,7 +151,7 @@ module.exports =
 
 NS.Props = O.extend()
 NS.Props.property('aProperty')
-module.exports = extend exports,
+module.exports = extend module.exports,
   "properties":
     "reflection": (test) ->
       test.equal Pathology.Property, NS.Props.properties.aProperty.constructor 
@@ -156,6 +159,11 @@ module.exports = extend exports,
 
     "creates property method on instance": (test) ->
       test.equal Pathology.Property.Instance, NS.Props.create().aProperty.constructor
+      test.done()
+
+    "instances have a reference to their owning object": (test) ->
+      object = NS.Props.create()
+      test.equal object, object.aProperty.object
       test.done()
 
     "basic property has a reader/writer": (test) ->
@@ -292,12 +300,3 @@ module.exports = extend exports,
     "delegates to functions": (test) ->
       test.equal "FUNCTION", @subject.b()
       test.done()
-
-
-
-
-
-
-
-
-

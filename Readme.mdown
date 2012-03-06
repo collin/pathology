@@ -246,6 +246,7 @@ awesome.baz()
 * added a delegate mixin
 * inheritable attributes
 * pathology properties
+* turned constructors into Functions, like god intended
 
 ## 0.1.0
 * basic object system

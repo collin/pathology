@@ -89,7 +89,75 @@ findNames = ->
 NamelessObjectsExist = true
 ctor = ->
 
-Bootstrap = Object.create
+# mad props to Backbone.js
+inherits = (parent, protoProps, staticProps) ->
+  if protoProps and protoProps.hasOwnProperty('constructor')
+    child = protoProps.constructor
+  else
+    child = -> parent.apply(this, arguments)
+
+  extend(child, parent)
+  
+  ctor.prototype = parent.prototype
+  child.prototype = new ctor()
+
+  if protoProps
+    extend child.prototype, protoProps
+
+  if staticProps
+    extend child, staticProps
+
+  child.prototype.constructor = child
+  child.__super__ = parent.prototype
+
+  return child
+
+Kernel =
+  objectId: -> readMeta this, "id"
+
+  readPath: (path) ->
+    target = this
+    (target = target[segment].get()) for segment in path
+    target
+
+  path: ->
+    findNames()
+    @_path().join(".")
+
+  _name: ->
+    findNames()
+    readMeta this, NAME_KEY
+
+  _readId: -> readMeta this, "id"
+
+  _container: ->
+    findNames()
+    readMeta this, CONTAINER_KEY
+
+  _path: ->
+    return [@_name()] unless container = @_container()
+    container_path = container._path()
+    container_path.push @_name()
+    container_path
+
+
+BootstrapPrototype = extend {}, Kernel,
+  # NOT PUBLIC
+  _createProperties: ->
+    for key, value of @constructor.properties ? {}
+      @[key] = value.instance(this)
+
+  propertiesThatCouldBe: (test) ->
+    hits = []
+    for name, property of @constructor.properties
+      next unless property.couldBe(test)
+      hits.push @[name]
+    hits
+
+  toString: ->
+    "<#{@constructor.path()}:#{@objectId()}>"
+
+BootstapStatics = extend {}, Kernel,
   descendants: []
   inheritableAttrs: []
 
@@ -128,90 +196,44 @@ Bootstrap = Object.create
   property: (name) ->
     Property.create(name, this)
 
-  propertiesThatCouldBe: (test) ->
-    hits = []
-    for name, property of @constructor.properties
-      next unless property.couldBe(test)
-      hits.push @[name]
-    hits
+  toString: ->
+    @path()
+
+  constructed: (object) ->
+    object.constructor is this
+
+  _pushExtension: (extension) ->
+    @descendants.push extension
+    @__super__.constructor._pushExtension?(extension)
 
   # Extend an object.
   extend: (extensions={}) ->
     NamelessObjectsExist = true
-    proto = Object.create(this)
-    extend proto, extensions
-    proto.constructor = this
-    proto[META_KEY] = undefined
-    extension = Object.create(proto)
-    extension.inheritableAttrs = clone(@inheritableAttrs)
+    child = inherits(this, extensions)
+    child[META_KEY] = undefined
+    child.inheritableAttrs = clone(@inheritableAttrs)
     for name in @inheritableAttrs
       continue unless @hasOwnProperty(name)
-      extension[name] = clone @[name]
-
-    extension.descendants = []
-    extension.__super__ = this
-    @_pushExtension(extension)
+      child[name] = clone @[name]
+  
+    child.descendants = []
+    @_pushExtension(child)
     meta = id: id()
-    writeMeta extension, meta
-    # defer ->
-    #   findNames()
-    #   extension.name = extension.toString
-    extension
+    writeMeta child, meta
+    return child
 
   # Create an object
   create: ->
-    object = Object.create(this)
-    object.constructor = this
+    object = new this()
     object[META_KEY] = undefined
     writeMeta object, id: id()
-    object.constructor.name = object.constructor.toString()
-    @initialize.apply(object, arguments) if @initialize
+    # object.constructor.name = object.constructor.toString()
     object._createProperties()
+    @prototype.initialize.apply(object, arguments) if @prototype.initialize
     object
 
-  objectId: -> readMeta this, "id"
 
-  toString: ->
-    if @hasOwnProperty("__super__")
-      "#{@path()}"
-    else
-      "<#{@constructor.path()}:#{@objectId()}>"
-
-  readPath: (path) ->
-    target = this
-    (target = target[segment].get()) for segment in path
-    target
-
-  path: ->
-    @_path().join(".")
-
-  constructed: (object) ->
-    object.constructor is @constructor
-
-  # NOT PUBLIC
-  _createProperties: ->
-    for key, value of @constructor.properties ? {}
-      @[key] = value.instance()
-
-  _name: ->
-    findNames()
-    readMeta this, NAME_KEY
-
-  _readId: -> readMeta this, "id"
-
-  _container: ->
-    findNames()
-    readMeta this, CONTAINER_KEY
-
-  _path: ->
-    return [@_name()] unless container = @_container()
-    container_path = container._path()
-    container_path.push @_name()
-    container_path
-
-  _pushExtension: (extension) ->
-    @descendants.push extension
-    @__super__?._pushExtension(extension)
+Bootstrap = inherits new Function, BootstrapPrototype, BootstapStatics
 
 Namespace = Bootstrap.extend
   initialize: (name) ->
@@ -243,7 +265,7 @@ Mixin = Bootstrap.extend
     @included.call(constructor)
 
     for key, value of @instance
-      constructor[key] = value
+      constructor::[key] = value
 
     for key, value of @static
       constructor[key] = value
@@ -259,7 +281,7 @@ Delegate = Mixin.create
                            from: @delegate #{JSON.stringify(names).replace('[','').replace(']','')}, #{JSON.stringify options} """)
 
       each names, (name) =>
-        @[name] = ->
+        @::[name] = ->
           target = @[options.to]
           target = target.call(this) if target.call
 
@@ -269,9 +291,6 @@ Delegate = Mixin.create
           return value
 
 Property = Bootstrap.extend
-  Instance: Bootstrap.extend
-    get: -> @value
-    set: (value) -> @value = value
 
   initialize: (@name, @_constructor) ->
     @_constructor.writeInheritableValue 'properties', @name, this
@@ -280,13 +299,12 @@ Property = Bootstrap.extend
     return true if test is @name
     false
 
-  instance: -> @Instance.create()
-  #   @appendFeatures()
+  instance: (object) -> @constructor.Instance.create(object)
 
-  # appendFeatures: ->
-  #   key = @key
-  #   @_constructor[@name] = (value) ->
-  #     if not(value) then return @[key] else @[key] = value
+Property.Instance = Bootstrap.extend
+  initialize: (@object) ->
+  get: -> @value
+  set: (value) -> @value = value
 
 
 
