@@ -2,50 +2,106 @@ puts = console.log
 Pathology = require("./../lib/pathology")
 {extend} = require("underscore")
 
-NS = Pathology.Namespace.create("NS")
+NS = Pathology.Namespace.new("NS")
 O = Pathology.Object
-It = NS.It = Pathology.Object.extend
-  initialize: (@property) ->
-  someProp: "someValue"
+It = NS.It = Pathology.Object.extend ({def}) ->
+  @Static = "Electricity"
 
-It.Static = "Electricity"
+  def initialize: (@property) ->
+
+  def someProp: "someValue"
 
 Child = NS.It.Child = It.extend()
 Grandchild = NS.It.Child.Grandchild = Child.extend()
 
-NS.Mixable = Pathology.Object.extend()
-NS.Mixer = Pathology.Mixin.create
-  included: ->
-    @mixer = "Powerful Stuff"
+# NS.Mixable = Pathology.Object.extend()
+# NS.Mixer = Pathology.Mixin.new
+#   included: ->
+#     @mixer = "Powerful Stuff"
 
-  static:
-    staticKey: "VALUE"
+#   static:
+#     staticKey: "VALUE"
 
-  instance:
-    instanceKey: "INSTANCEVALUE"
+#   instance:
+#     instanceKey: "INSTANCEVALUE"
 
-NS.Mixer.extends(NS.Mixable)
+# NS.Mixer.extends(NS.Mixable)
 
-NS.Delegating = Pathology.Object.extend
-  initialize: (attrs) -> extend this, attrs
+NS.Delegating = Pathology.Object.extend ({def, delegate}) ->
+  delegate "field", to: "foo"
+  delegate "a", "b", to: "bar"
 
-NS.Delegating.delegate "field", to: "foo"
-NS.Delegating.delegate "a", "b", to: "bar"
+  def initialize: (attrs) -> extend this, attrs
+
 
 module.exports =
-  "Object create/extend":
-    "calls the constructor": (test) ->
-      test.equal "Value", It.create("Value").property
-      test.done()
+  Object:
+    "extend":
+      "creates an extension of the parent class": (test) ->
+        Extended = O.extend()
+        test.equal Extended.__super__.constructor, O
+        test.done()
 
-    "constructor is the constructor": (test) ->
-      test.equal It, It.create().constructor
-      test.done()
+      "pases the new class into the class body": (test) ->
+        passedIn = null
+        Extended = O.extend (klass) -> passedIn = klass
+        test.equal Extended, passedIn
+        test.done()
+
+    "def":
+      "defines slots on the prototype": (test) ->
+        Extended = O.extend()
+        Extended.def slot: "value"
+        test.equal "value", Extended.prototype.slot
+        test.done()
+    
+    "defs":
+      "defines slots on the class": (test) ->
+        Extended = O.extend()
+        Extended.defs slot: "value"
+        test.equal "value", Extended.slot
+        test.done()
+    
+    "new":
+      "creates an instance of the class": (test) ->
+        Extended = O.extend()
+        test.ok Extended.new() instanceof Extended
+        test.done()
+
+      "passes arguments to the initalize function": (test) ->
+        test.expect 2
+        Extended = O.extend ({def}) ->
+          def initialize: (a, b) ->
+            test.equal "1", a
+            test.equal "2", b
+
+        Extended.new "1", "2"
+
+        test.done()
+
+    "open":
+      "reopens a class": (test) ->
+        Extended = O.extend()
+        Extended.open ({defs}) ->
+          defs extraExtra: "read all about it"
+
+        test.equal "read all about it", Extended.extraExtra
+        test.done()
+    
+    # "include":
+    
+    # "ancestors":
+    
+    # "delegate":
+
+  "super": {}
+
+  "Object create/extend":
 
     "prototype slots are passed through multiple levels": (test) ->
-      test.equal "someValue", It.create().someProp
-      test.equal "someValue", Child.create().someProp
-      test.equal "someValue", Grandchild.create().someProp
+      test.equal "someValue", It.new().someProp
+      test.equal "someValue", Child.new().someProp
+      test.equal "someValue", Grandchild.new().someProp
       test.done()
 
     "static properties are passed through multiple levels": (test) ->
@@ -63,7 +119,7 @@ module.exports =
       test.done()
 
     "object toString has constructor and objectid": (test) ->
-      grandchild = Grandchild.create()
+      grandchild = Grandchild.new()
       test.ok grandchild.objectId() isnt undefined
       test.equal "<NS.It.Child.Grandchild:#{grandchild.objectId()}>", grandchild.toString()
       test.done()
@@ -158,37 +214,37 @@ module.exports = extend module.exports,
       test.done()
 
     "creates property method on instance": (test) ->
-      test.equal Pathology.Property.Instance, NS.Props.create().aProperty.constructor
+      test.equal Pathology.Property.Instance, NS.Props.new().aProperty.constructor
       test.done()
 
     "instances have a reference to their owning object": (test) ->
-      object = NS.Props.create()
+      object = NS.Props.new()
       test.equal object, object.aProperty.object
       test.done()
 
     "basic property has a reader/writer": (test) ->
-      o =  NS.Props.create()
+      o =  NS.Props.new()
       o.aProperty.set("value")
       test.equal "value", o.aProperty.get()
       test.done()
 
   "propertiesThatCouldBe":
     "returns a list of properties that couldBe": (test) ->
-      o = NS.Props.create()
+      o = NS.Props.new()
       could = o.propertiesThatCouldBe('aProperty')
       test.deepEqual [o.aProperty], could
       test.done()
 
   "readPath":
     "reads a property": (test) ->
-      it = NS.Props.create()
+      it = NS.Props.new()
       it.aProperty.set("value")
       test.equal "value", it.readPath ["aProperty"]
       test.done()
 
     "reads a property through properties": (test) ->
-      it = NS.Props.create()
-      other = NS.Props.create()
+      it = NS.Props.new()
+      other = NS.Props.new()
       it.aProperty.set(other)
       other.aProperty.set("value")
 
@@ -248,14 +304,14 @@ module.exports = extend module.exports,
       test.done()
 
     "nested namespaces nest paths deeply, and don't require a name": (test) ->
-      NS.NS2 = Pathology.Namespace.create()
+      NS.NS2 = Pathology.Namespace.new()
       test.equal "NS2", NS.NS2._name()
       test.equal "NS.NS2", NS.NS2.path()
       test.done()
 
     "namespaces nested in constructors get their paths": (test) ->
       NS.Thingy = Pathology.Object.extend()
-      NS.Thingy.NS3 = Pathology.Namespace.create()
+      NS.Thingy.NS3 = Pathology.Namespace.new()
       NS.Thingy.NS3.Fourth = Pathology.Object.extend()
       NS.Thingy.NS3._name()
       test.equal "NS3", NS.Thingy.NS3._name()
@@ -264,26 +320,26 @@ module.exports = extend module.exports,
       test
       test.done()
 
-  "Mixin":
-    "extended tests whether a mixin has been mixed into a constructor": (test) ->
-      test.ok NS.Mixer.extended(NS.Mixable)
-      test.done()
+#   "Mixin":
+#     "extended tests whether a mixin has been mixed into a constructor": (test) ->
+#       test.ok NS.Mixer.extended(NS.Mixable)
+#       test.done()
 
-    "included callback called when mixin mixed in": (test) ->
-      test.equal "Powerful Stuff", NS.Mixable.mixer
-      test.done()
+#     "included callback called when mixin mixed in": (test) ->
+#       test.equal "Powerful Stuff", NS.Mixable.mixer
+#       test.done()
 
-    "static is mixed into constructor": (test) ->
-      test.equal "VALUE", NS.Mixable.staticKey
-      test.done()
+#     "static is mixed into constructor": (test) ->
+#       test.equal "VALUE", NS.Mixable.staticKey
+#       test.done()
 
-    "instance is mixed into constructor prototype": (test) ->
-      test.equal "INSTANCEVALUE", NS.Mixable.create().instanceKey
-      test.done()
+#     "instance is mixed into constructor prototype": (test) ->
+#       test.equal "INSTANCEVALUE", NS.Mixable.new().instanceKey
+#       test.done()
 
   "Delegate":
     setUp: (callback) ->
-      @subject = NS.Delegating.create
+      @subject = NS.Delegating.new
         foo: field: "FIELD"
         bar: (a: "PROP", b: -> "FUNCTION")
 

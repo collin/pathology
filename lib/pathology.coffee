@@ -1,5 +1,5 @@
 puts = console.log
-{flatten, extend, each, any, map, include, clone, isFunction, isObject, clone, defer} = require("underscore")
+{flatten, extend, each, any, map, include, clone, isFunction, bindAll, isObject, clone, defer} = require("underscore")
 
 # Simplistic Polyfill for Object.create taken from Mozilla documentation.
 Object.create ?= (object) ->
@@ -193,8 +193,33 @@ BootstapStatics = extend {}, Kernel,
 
     item
 
+  def: (slots) ->
+    extend @prototype, slots
+
+  defs: (slots) ->
+    extend this, slots
+
+  open: (body) ->
+    body.call(this, this)
+
   property: (name) ->
-    Property.create(name, this)
+    Property.new(name, this)
+
+  delegate: (names..., options) ->
+    unless options.to
+      throw new Error("""In #{this} you MUST specify a `to' in your delegators.
+                         from: @delegate #{JSON.stringify(names).replace('[','').replace(']','')}, #{JSON.stringify options} """)
+
+    each flatten(names), (name) =>
+      @prototype[name] = ->
+        target = @[options.to]
+        target = target.call(this) if target.call
+
+        value = target[name]
+        value = value.call(target) if value.call
+
+        return value
+
 
   toString: ->
     @path()
@@ -207,9 +232,9 @@ BootstapStatics = extend {}, Kernel,
     @__super__.constructor._pushExtension?(extension)
 
   # Extend an object.
-  extend: (extensions={}) ->
+  extend: (body) ->
     NamelessObjectsExist = true
-    child = inherits(this, extensions)
+    child = inherits(this, {})
     child[META_KEY] = undefined
     child.inheritableAttrs = clone(@inheritableAttrs)
     for name in @inheritableAttrs
@@ -220,10 +245,12 @@ BootstapStatics = extend {}, Kernel,
     @_pushExtension(child)
     meta = id: id()
     writeMeta child, meta
+    bindAll child, "def", "defs", "delegate"
+    child.open(body) if body and body.call
     return child
 
   # Create an object
-  create: ->
+  new: ->
     object = new this()
     object[META_KEY] = undefined
     writeMeta object, id: id()
@@ -235,8 +262,8 @@ BootstapStatics = extend {}, Kernel,
 
 Bootstrap = inherits new Function, BootstrapPrototype, BootstapStatics
 
-Namespace = Bootstrap.extend
-  initialize: (name) ->
+Namespace = Bootstrap.extend ({def}) ->
+  def initialize: (name) ->
     if name
       Namespaces[name] = this
       meta = {}
@@ -245,84 +272,65 @@ Namespace = Bootstrap.extend
     else
       NamelessObjectsExist = true
 
-  name: ->
+  def name: ->
     findNames()
     readMeta this, NAME_KEY
 
-  _readName: ->
+  def _readName: ->
 
-Bootstrap.inheritableAttr("mixins", [])
+# Bootstrap.inheritableAttr("mixins", [])
 
-Mixin = Bootstrap.extend
-  initialize: (config={}) ->
-    @included = config.included ? ->
-    @instance = config.instance ? {}
-    @static = config.static ? {}
+# Mixin = Bootstrap.extend
+#   initialize: (config={}) ->
+#     @included = config.included ? ->
+#     @instance = config.instance ? {}
+#     @static = config.static ? {}
 
-  extends: (constructor) ->
-    return if @extended(constructor)
-    constructor.pushInheritableItem "mixins", this
-    @included.call(constructor)
+#   extends: (constructor) ->
+#     return if @extended(constructor)
+#     constructor.pushInheritableItem "mixins", this
+#     @included.call(constructor)
 
-    for key, value of @instance
-      constructor::[key] = value
+#     for key, value of @instance
+#       constructor::[key] = value
 
-    for key, value of @static
-      constructor[key] = value
+#     for key, value of @static
+#       constructor[key] = value
 
-  extended: (constructor) ->
-    include(constructor.mixins, this)
+#   extended: (constructor) ->
+#     include(constructor.mixins, this)
 
-Delegate = Mixin.create
-  static:
-    delegate: (names..., options) ->
-      unless options.to
-        throw new Error("""In #{this} you MUST specify a `to' in your delegators.
-                           from: @delegate #{JSON.stringify(names).replace('[','').replace(']','')}, #{JSON.stringify options} """)
+Property = Bootstrap.extend ({def}) ->
 
-      each flatten(names), (name) =>
-        @::[name] = ->
-          target = @[options.to]
-          target = target.call(this) if target.call
-
-          value = target[name]
-          value = value.call(target) if value.call
-
-          return value
-
-Delegate.extends(Bootstrap)
-
-Property = Bootstrap.extend
-
-  initialize: (@name, @_constructor) ->
+  def initialize: (@name, @_constructor) ->
     @_constructor.writeInheritableValue 'properties', @name, this
 
-  couldBe: (test) ->
+  def couldBe: (test) ->
     return true if test is @name
     false
 
-  instance: (object) -> @constructor.Instance.create(object)
+  def instance: (object) -> @constructor.Instance.new(object)
 
-Property.Instance = Bootstrap.extend
-  initialize: (@object) ->
-  get: -> @value
-  set: (value) -> @value = value
+Property.Instance = Bootstrap.extend ({def}) ->
+  def initialize: (@object) ->
+  def get: -> @value
+  def set: (value) -> @value = value
 
 
 
 writeMeta Namespace, _name: "Namespace"
-writeMeta Mixin, _name: "Mixin"
-writeMeta Delegate, _name: "Delegate"
+# writeMeta Mixin, _name: "Mixin"
+# writeMeta Delegate, _name: "Delegate"
 writeMeta Property, _name: "Property"
 writeMeta Property.Instance, _name: "Instance"
 
 
-Pathology = module.exports = Namespace.create("Pathology")
+Pathology = module.exports = Namespace.new("Pathology")
 Pathology.id = id
 Pathology.Object = Bootstrap
 Pathology.readMeta = readMeta
 Pathology.writeMeta = writeMeta
 Pathology.Namespace = Namespace
-Pathology.Mixin = Mixin
+# Pathology.Mixin = Mixin
 Pathology.Property = Property
 

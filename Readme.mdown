@@ -18,7 +18,7 @@ Any Function values are specially juiced to allow calls to super.
 ```coffee
 Pathology.Object.def key: "value"
 Pathology.Object.def method: -> console.log @key
-puts Pathology.Object.protottype
+puts Pathology.Object.prototype
 # => {
 #      ...
 #      key: "value"
@@ -42,6 +42,7 @@ Creates a subclass. Pathology classes have executable class bodies. The body fun
 is passed one argument, the new class. This can be taken advantage of to define local
 variables for def, defs, etc. In a class body `this` refers to the class itself.
 
+coffee
 ```
 MyFirstClass = Pathology.Object.extend ({def, defs}) -> # shortcuts to def/defs via dereferencing
   # You can use @def
@@ -100,20 +101,20 @@ MyFirstClass.ancestors
 # namespaces. Unlike Ember, Pathology isn't going
 # to go rooting around the global namespace looking
 # for your objects.
-Root = Pathology.Namespace.create("Root")
+Root = Pathology.Namespace.new("Root")
 
 # However, Pathology doesn't need you to explicitly name
 # your further nested namespaces. As long as all your objects
 # are connected to a root level Namespace.
 # You can even reference your objects elsewhere for convenience.
-Subspace = Root.Subspace = Pathology.Namespace.create()
+Subspace = Root.Subspace = Pathology.Namespace.new()
 
 # Pathology provides a basic Object class with def/defs/include/extend/create/open semantics.
 # When you extend a pathology class you pass in 
 Subspace.Thing = Pathology.Object.extend ({def}) ->
   def initialize: (@properties={}) ->
 
-something = Subspace.Thing.create(property: "value")
+something = Subspace.Thing.new(property: "value")
 
 # And this all comes together for the final awesome-sauce.
 puts Subspace.Thing.toString()
@@ -210,7 +211,7 @@ Root.Subspace.Thing.properties.aProperty
 Property instances are created after the initialize method.
 
 ```coffee
-Root.Subspace.Thing.create().aProperty
+Root.Subspace.Thing.new().aProperty
 # => <Pathology.Property.Instance:p-24>
 ```
 
@@ -234,7 +235,7 @@ Property = Pathology.Object.extend ({def}) ->
     return true if test is @name
     false
 
-  def instance: -> @Instance.create()
+  def instance: -> @Instance.new()
 
 Property.Instance = Pathology.Object.extend ({def}) ->
   def get: -> @value
@@ -278,7 +279,7 @@ Root.Mixable.include(Root.Mixer)
 # "included in Root.Mixable? true"
 Root.Mixable.staticKey
 # => "Static Value"
-Root.Mixable.create().instanceKey
+Root.Mixable.new().instanceKey
 # => "Instance Value"
 Root.Mixable.isA(Root.Mixer)
 # => true
@@ -308,7 +309,7 @@ and call methods if they are in the chain.
 Here are some calls to delegate methods and the equivalant manual access.
 
 ```coffee
-awesome = Awesome.create()
+awesome = Awesome.new()
 # awesome.foo() is the same as awesome.target.foo
 awesome.foo()
 # => "foo"
