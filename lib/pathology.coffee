@@ -1,5 +1,5 @@
 puts = console.log
-{extend, each, any, map, include, clone, isFunction, isObject, clone, defer} = require("underscore")
+{flatten, extend, each, any, map, include, clone, isFunction, isObject, clone, defer} = require("underscore")
 
 # Simplistic Polyfill for Object.create taken from Mozilla documentation.
 Object.create ?= (object) ->
@@ -280,7 +280,7 @@ Delegate = Mixin.create
         throw new Error("""In #{this} you MUST specify a `to' in your delegators.
                            from: @delegate #{JSON.stringify(names).replace('[','').replace(']','')}, #{JSON.stringify options} """)
 
-      each names, (name) =>
+      each flatten(names), (name) =>
         @::[name] = ->
           target = @[options.to]
           target = target.call(this) if target.call
@@ -289,6 +289,8 @@ Delegate = Mixin.create
           value = value.call(target) if value.call
 
           return value
+
+Delegate.extends(Bootstrap)
 
 Property = Bootstrap.extend
 
@@ -314,7 +316,6 @@ writeMeta Delegate, _name: "Delegate"
 writeMeta Property, _name: "Property"
 writeMeta Property.Instance, _name: "Instance"
 
-Delegate.extends(Bootstrap)
 
 Pathology = module.exports = Namespace.create("Pathology")
 Pathology.id = id

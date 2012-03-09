@@ -2,9 +2,7 @@
 
 ### The scientific study of the nature of ~~disease~~ JavaScript and its causes, processes, development, and consequences.
 
-The disturbing truth about CoffeeScript is that it lets you completely obliterate JavaScript
-and create your own "language" out of the pieces without ending up with a syntax that makes
-you claw your eyes out.
+A ~~disturbing~~ delightful truth about CoffeeScript is that it lets you completely obliterate JavaScript and create your own "language" out of the pieces without ending up with a syntax that makes you claw your eyes out.
 
 ```coffee
 puts = console.log
@@ -13,36 +11,84 @@ puts = console.log
 ## Classes
 Pathology ships with a core class: "Pathology.Object".
 
-### Object#def (Object, slots)
+### Pathology.Object#def ([Object] slots)
 Adds each key and value of slots object to the class prototype.
 Any Function values are specially juiced to allow calls to super.
 
 ```coffee
-Object.def key: "value"
-Object.def method: -> console.log @key
-puts Object.protottype
+Pathology.Object.def key: "value"
+Pathology.Object.def method: -> console.log @key
+puts Pathology.Object.protottype
 # => {
-  ...
-  key: "value"
-  method: [Fuction (juiced to allow calls to super) function() {
-    return console.log(this.key);
-  }]
-}
+#      ...
+#      key: "value"
+#      method: [Fuction (juiced to allow calls to super) function() {
+#        return console.log(this.key);
+#      }]
+#    }
 ```
 
-### Object#defs ([Object] slots)
+### Pathology.Object#defs ([Object] slots)
 Adds each key and value of slots object to the class directly.
 
 ```coffee
-Object.defs key: "value"
+Pathology.Object.defs key: "value"
 puts Object.key
 # => "value"
 ```
 
-### Object#extend ([Function] body)
-### Object#open ([Function] body)
-### Object#include ([Pathology.Module] ...modules)
-### Object#new (...arguments)
+### Pathology.Object#extend ([Function] body)
+Creates a subclass. Pathology classes have executable class bodies. The body function
+is passed one argument, the new class. This can be taken advantage of to define local
+variables for def, defs, etc. In a class body `this` refers to the class itself.
+
+```
+MyFirstClass = Pathology.Object.extend ({def, defs}) -> # shortcuts to def/defs via dereferencing
+  # You can use @def
+  @def message: "Hello"
+
+  # or our shortcut def
+  def greet: (subject) ->
+    "#{@message} #{subject}!"
+
+  # And you can use defs to define slots directly on the class.
+  defs outlook: "Peachy"
+
+```
+
+### Pathology.Object#new (...arguments)
+Creates an instance of a class, passing arguments to the 'initialize' method.
+
+```coffee
+greeter = MyFirstClass.new()
+greeter.greet "World"
+# => "Hello World!"
+```
+
+### Pathology.Object#open ([Function] body)
+Sometimes you need to re-open a class later and do some more work on it.
+The body function in open behaves the same way as the body function for creating
+a class.
+
+```coffee
+MyFirstClass.open ({def}) ->
+  def anotherMethod: -> # TODO: something crazy
+```
+
+### Pathology.Object#include ([Pathology.Module] ...modules)
+Include one or modules into the class. Modules are placed into the super chain.
+If you include multiple modules that define the same method you can use super to
+call your way up the chain. Call Pathology.Object#ancestors to see the super chain.
+
+
+
+### Pathology.Object#ancestors
+Returns a list of ancestors of this class. Ancestors is used as the "super chain"
+
+```coffee
+MyFirstClass.ancestors
+# => [MyFirstClass, Pathology.Object, Pathology.Kernel]
+```
 
 ### Pretty toString on objects.
 
