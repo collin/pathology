@@ -2,13 +2,47 @@
 
 ### The scientific study of the nature of ~~disease~~ JavaScript and its causes, processes, development, and consequences.
 
+The disturbing truth about CoffeeScript is that it lets you completely obliterate JavaScript
+and create your own "language" out of the pieces without ending up with a syntax that makes
+you claw your eyes out.
+
 ```coffee
 puts = console.log
 ```
 
-Ember.js has AWESOME toString() support for objects. And I wanted some of that magic sauce. But I'm not ready to commit to Ember.js for the project I'm working on, there is just too much existing code.
+## Classes
+Pathology ships with a core class: "Pathology.Object".
 
-Right now this only really does the following:
+### Object#def (Object, slots)
+Adds each key and value of slots object to the class prototype.
+Any Function values are specially juiced to allow calls to super.
+
+```coffee
+Object.def key: "value"
+Object.def method: -> console.log @key
+puts Object.protottype
+# => {
+  ...
+  key: "value"
+  method: [Fuction (juiced to allow calls to super) function() {
+    return console.log(this.key);
+  }]
+}
+```
+
+### Object#defs ([Object] slots)
+Adds each key and value of slots object to the class directly.
+
+```coffee
+Object.defs key: "value"
+puts Object.key
+# => "value"
+```
+
+### Object#extend ([Function] body)
+### Object#open ([Function] body)
+### Object#include ([Pathology.Module] ...modules)
+### Object#new (...arguments)
 
 ### Pretty toString on objects.
 
@@ -28,9 +62,11 @@ Root = Pathology.Namespace.create("Root")
 # You can even reference your objects elsewhere for convenience.
 Subspace = Root.Subspace = Pathology.Namespace.create()
 
-# Pathology provides a basic Object with extend/create semantics.
-Subspace.Thing = Pathology.Object.extend
-  initialize: (@properties={}) ->
+# Pathology provides a basic Object class with def/defs/include/extend/create/open semantics.
+# When you extend a pathology class you pass in 
+Subspace.Thing = Pathology.Object.extend ({def}) ->
+  def initialize: (@properties={}) ->
+
 something = Subspace.Thing.create(property: "value")
 
 # And this all comes together for the final awesome-sauce.
@@ -68,7 +104,7 @@ the subclasses. An example might be a list of attributes. With ineritable attrib
 you might implement this:
 
 ```coffee
-Model = Root.Model = Pathology.Object.extend
+Model = Root.Model = Pathology.Object.extend()
 Model.pushInheritableItem "fields", "id"
 Model.pushInheritableItem "fields", "name"
 
@@ -144,19 +180,21 @@ Pathology.Property follows a simple interface. The core property implementation
 is the following:
 
 ```coffee
-Property = Pathology.Object.extend
-  Instance: Pathology.Object.extend
-    get: -> @value
-    set: (value) -> @value = value
-
-  initialize: (@name, @_constructor) ->
+Property = Pathology.Object.extend ({def}) ->
+  def initialize: (@name, @_constructor) ->
     @_constructor.writeInheritableValue 'properties', @name, this
 
-  couldBe: (test) ->
+  def couldBe: (test) ->
     return true if test is @name
     false
 
-  instance: -> @Instance.create()
+  def instance: -> @Instance.create()
+
+Property.Instance = Pathology.Object.extend ({def}) ->
+  def get: -> @value
+
+  def set: (value) -> @value = value
+
 
 ```
 
@@ -164,39 +202,39 @@ If you extend Pathology.Property you will most likely be working on the
 Instance. See this example from Taxi, an event binding library,
 
 ```coffee
-Taxi.Property = Pathology.Property.extend
-  Instance: Pathology.Property.Instance.extend
-    set: (value) ->
-      return value if value is @value
-      @value = value
-      @trigger "change"
-      value
+Taxi.Property = Pathology.Property.extend()
+
+Taxi.Property.Instance = Pathology.Property.Instance.extend ({def}) ->
+  def set: (value) ->
+    return value if value is @value
+    @value = value
+    @trigger "change"
+    value
 ```
 
-### Mixins
-Pathology includes a simplistic mixin system. (no _super here, sorry)
+### Modules
+Pathology includes a simple module system.
 
-Use it more or less like this
+Use it more or less like this:
 
 ```coffee
 Root.Mixable = Pathology.Object.extend()
-Root.Mixer = Pathology.Mixin.create
-  included: ->
+Root.Mixer = Pathology.Mixin.extend ({def, defs}) ->
+  defs staticKey: "Static Value"
+
+  def included: ->
     puts "included in Root.Mixable? ", this is Root.Mixable
 
-  static:
-    staticKey: "Static Value"
-
-  instance:
+  def instance:
     instanceKey: "Instance Value"
 
-Root.Mixer.extends(Root.Mixable)
+Root.Mixable.include(Root.Mixer)
 # "included in Root.Mixable? true"
-Root.Mixer.staticKey
+Root.Mixable.staticKey
 # => "Static Value"
-Root.Mixer.create().instanceKey
+Root.Mixable.create().instanceKey
 # => "Instance Value"
-Root.Mixer.extended(Root.Mixable)
+Root.Mixable.isA(Root.Mixer)
 # => true
 ```
 
@@ -205,16 +243,16 @@ Pathology Objects may define method and property delegation.
 Defining delegates looks like this:
 
 ```coffee
-Awesome = Root.Awesome = Pathology.Object.extend
-  target:
+Awesome = Root.Awesome = Pathology.Object.extend ({def, delegate}) ->
+  delegate "foo", "bar", to: "target"
+  delegate "biz", "baz", to: "other"
+
+  def target:
     foo: "foo"
     bar: -> "bar"
 
-  other: ->
+  def other: ->
     return biz: "biz", baz: -> "baz"
-
-Awesome.delegate "foo", "bar", to: "target"
-Awesome.delegate "biz", "baz", to: "other"
 ```
 
 With this delegation setup we can call the following methods on an Awesom object.
@@ -247,6 +285,10 @@ awesome.baz()
 * inheritable attributes
 * pathology properties
 * turned constructors into Functions, like god intended
+* extend classes with a function
+* define properties with def/defs
+* include with include
+* delegate with delegate
 
 ## 0.1.0
 * basic object system
