@@ -41,7 +41,7 @@ puts Object.key
 Creates a subclass. Pathology classes have executable class bodies. The body function
 is passed one argument, the new class. This can be taken advantage of to define local
 variables for def, defs, etc. In a class body `this` refers to the class itself.
-
+  
 ```coffee
 MyFirstClass = Pathology.Object.extend ({def, defs}) -> # shortcuts to def/defs via dereferencing
   # You can use @def

@@ -4,6 +4,7 @@ Pathology = require("./../lib/pathology")
 
 NS = Pathology.Namespace.new("NS")
 O = Pathology.Object
+M = Pathology.Module
 It = NS.It = Pathology.Object.extend ({def}) ->
   @Static = "Electricity"
 
@@ -15,7 +16,7 @@ Child = NS.It.Child = It.extend()
 Grandchild = NS.It.Child.Grandchild = Child.extend()
 
 # NS.Mixable = Pathology.Object.extend()
-# NS.Mixer = Pathology.Mixin.new
+# NS.Mixer = M.new
 #   included: ->
 #     @mixer = "Powerful Stuff"
 
@@ -26,12 +27,6 @@ Grandchild = NS.It.Child.Grandchild = Child.extend()
 #     instanceKey: "INSTANCEVALUE"
 
 # NS.Mixer.extends(NS.Mixable)
-
-NS.Delegating = Pathology.Object.extend ({def, delegate}) ->
-  delegate "field", to: "foo"
-  delegate "a", "b", to: "bar"
-
-  def initialize: (attrs) -> extend this, attrs
 
 
 module.exports =
@@ -88,30 +83,231 @@ module.exports =
         test.equal "read all about it", Extended.extraExtra
         test.done()
     
-    # "include":
-    
-    # "ancestors":
-    
-    # "delegate":
+    "ancestors":
+      "Pathology.Object has [Pathology.Object] as ancestors": (test) ->
+        test.deepEqual [O], O.ancestors
+        test.done()
 
-  "super": {}
+      "subclass of Pathology.Object have [self, Pathology.Object] as ancestors": (test) ->
+        test.deepEqual [O, It], It.ancestors
+        test.done()
+
+      "ancestors stack deeply": (test) ->
+        test.deepEqual [O, It, Child, Grandchild], Grandchild.ancestors
+        test.done()
+
+    "include":
+      "places the included module into the ancestor chain above class": (test) ->
+        Extended = O.extend()
+        Module = M.extend()
+        Extended.include Module
+        test.deepEqual [O, Module, Extended], Extended.ancestors
+        test.done()
+
+      "places the included module into the ancestor chain of subclasses": (test) ->
+        NS.Extended = O.extend()
+        NS.Sub = NS.Extended.extend()
+        NS.Module = M.extend()
+        NS.Extended.include NS.Module
+        test.deepEqual [O, NS.Module, NS.Extended, NS.Sub].toString(), NS.Sub.ancestors.toString()
+
+        test.done()
+
+      "classes created after Module was included have mixn in the ancestor chain": (test) ->
+        NS.Extended = O.extend()
+        NS.Sub = NS.Extended.extend()
+        NS.Module = M.extend()
+        NS.Module2 = M.extend()
+        NS.Extended.include NS.Module
+
+        NS.Later = NS.Sub.extend()
+
+        test.deepEqual [O, NS.Module, NS.Extended, NS.Sub, NS.Later].toString(), NS.Later.ancestors.toString()
+
+        NS.Later.include NS.Module2
+
+        test.deepEqual [O, NS.Module, NS.Extended, NS.Sub, NS.Module2, NS.Later].toString(), NS.Later.ancestors.toString()
+
+        test.done()
+
+      "adds slots to including class": (test) ->
+        Extended = O.extend()
+        Module = M.extend ({def}) ->
+          def key: "value"
+        Extended.include Module
+
+        test.equal "value", Extended.new().key
+        test.done()
+
+      "adds slots to classes already included in": (test) ->
+        Extended = O.extend()
+        Module = M.extend()
+        Extended.include Module
+        Module.def key: "value"
+        test.equal "value", Extended.new().key
+        test.done()
+
+      "adds slots to downstream classes": (test) ->
+        Extended = O.extend()
+        Downstream = Extended.extend()
+        Module = M.extend()
+        Extended.include Module
+        Module.def key: "value"
+        test.equal "value", Downstream.new().key
+        test.done()
+
+      "most specific module provides the slot": (test) ->
+        Extended = O.extend()
+        Downstream = Extended.extend()
+        Module = M.extend()
+        Module2 = M.extend()
+        Module3 = M.extend()
+        Extended.include Module
+        Downstream.include Module2
+        Extended.include Module3
+        Module.def key: "value"
+        Module2.def key: "value2"
+        Module3.def key: "value3"
+        test.equal "value3", Extended.new().key
+        test.equal "value2", Downstream.new().key
+        test.done()
+
+    "delegate":
+      setUp: (callback) ->
+        NS.Delegating = Pathology.Object.extend ({def, delegate}) ->
+          delegate "field", to: "foo"
+          delegate "a", "b", to: "bar"
+
+          def initialize: (attrs) -> extend this, attrs
+
+        @subject = NS.Delegating.new
+          foo: field: "FIELD"
+          bar: (a: "PROP", b: -> "FUNCTION")
+
+        callback()
+
+      "delegates fields": (test) ->
+        test.equal "FIELD", @subject.field()
+        test.done()
+
+      "delegates multi": (test) ->
+        test.equal "PROP", @subject.a()
+        test.done()
+
+      "delegates to functions": (test) ->
+        test.equal "FUNCTION", @subject.b()
+        test.done()
+
+
+  "super":
+    "super to parent class":
+      "method defined on parent first": (test) ->
+        Parent = O.extend ({def}) ->
+          def method: -> "whiz"
+
+        Child = Parent.extend ({def}) ->
+          def method: -> @_super() + " bang!"
+
+        test.equal "whiz bang!", Child.new().method()
+
+        test.done()
+
+      "method defined on parent after": (test) ->
+        Parent = O.extend()
+
+        Child = Parent.extend ({def}) ->
+          def method: -> @_super() + " bang!"
+
+        Parent.def method: -> "whiz"
+
+        test.equal "whiz bang!", Child.new().method()
+
+        test.done()
+
+
+    "super to parents parent class": 
+      "method defined on parent first": (test) ->
+        Parent = O.extend ({def}) ->
+          def method: -> "parent"
+
+        Child = Parent.extend() 
+
+        Grandchild = Child.extend ({def}) ->
+          def method: -> @_super() + ", grandchild"
+
+        test.equal "parent, grandchild", Grandchild.new().method()
+
+        test.done()
+
+      "method defined on grandchild first": (test) ->
+        Parent = O.extend()
+        Child = Parent.extend()
+        Grandchild = Child.extend ({def}) ->
+          def method: -> @_super() + ", grandchild"
+
+        Parent.def method: -> "parent"
+
+        test.equal "parent, grandchild", Grandchild.new().method()
+        test.done()
+
+      "method defined on child last": (test) ->
+        X = Pathology.Namespace.new("X")
+        X.Parent = O.extend ({def}) ->
+          def method: -> "parent"
+
+        X.Child = X.Parent.extend() 
+
+        X.Grandchild = X.Child.extend ({def}) ->
+          def method: -> @_super() + ", grandchild" 
+
+        X.Child.def method: -> @_super() + ", child"
+
+        test.equal "parent, child, grandchild", X.Grandchild.new().method()
+        test.done()
+
+      "method defined on child first, parent second": (test) ->
+        X = Pathology.Namespace.new("X")
+        X.Parent = O.extend()
+        X.Child = X.Parent.extend() 
+        X.Grandchild = X.Child.extend()
+
+        X.Child.def method: -> @_super() + ", child"
+        X.Parent.def method: -> "parent"
+        X.Grandchild.def method: -> @_super() + ", grandchild" 
+
+        test.equal "parent, child, grandchild", X.Grandchild.new().method()
+        test.done()
+
+      "method defined on child first, parent last": (test) ->
+        X = Pathology.Namespace.new("X")
+        X.Parent = O.extend()
+        X.Child = X.Parent.extend() 
+        X.Grandchild = X.Child.extend()
+
+        X.Child.def method: -> @_super() + ", child"
+        X.Grandchild.def method: -> @_super() + ", grandchild" 
+        X.Parent.def method: -> "parent"
+
+        test.equal "parent, child, grandchild", X.Grandchild.new().method()
+        test.done()
+
 
   "Object create/extend":
 
     "prototype slots are passed through multiple levels": (test) ->
-      test.equal "someValue", It.new().someProp
-      test.equal "someValue", Child.new().someProp
-      test.equal "someValue", Grandchild.new().someProp
+      test.equal "someValue", NS.It.new().someProp, "on parent"
+      test.equal "someValue", NS.It.Child.new().someProp, "on child"
+      test.equal "someValue", NS.It.Child.Grandchild.new().someProp, "on grandchild"
       test.done()
 
     "static properties are passed through multiple levels": (test) ->
-      test.equal "Electricity", Grandchild.Static
+      test.equal "Electricity", NS.It.Child.Grandchild.Static
       test.done()
 
     "reflect on subclasses": (test) ->
-      test.deepEqual It.descendants, [Child, Grandchild]
-      test.deepEqual Child.descendants, [Grandchild]
-      test.deepEqual Grandchild.descendants, []
+      test.equal It.descendants.join("|"), [It.Child, It.Child.Grandchild].join("|")
+      test.equal It.Child.descendants.join("|"), [It.Child.Grandchild].join("|")
+      test.equal It.Child.Grandchild.descendants.join("|"), [].join("|")
       test.done()
 
     "names items": (test) ->
@@ -119,14 +315,14 @@ module.exports =
       test.done()
 
     "object toString has constructor and objectid": (test) ->
-      grandchild = Grandchild.new()
+      grandchild = NS.It.Child.Grandchild.new()
       test.ok grandchild.objectId() isnt undefined
       test.equal "<NS.It.Child.Grandchild:#{grandchild.objectId()}>", grandchild.toString()
       test.done()
 
     "constructor toString has constructor path": (test) ->
       test.equal "Pathology.Namespace", Pathology.Namespace.toString()
-      test.equal "NS.It.Child.Grandchild", Grandchild.toString()
+      test.equal "NS.It.Child.Grandchild", NS.It.Child.Grandchild.toString()
       test.done()
 
   "Object.writeInheritableAttrs":
@@ -300,7 +496,7 @@ module.exports = extend module.exports,
       test.done()
 
     "constructor paths nest deeply": (test) ->
-      test.equal "NS.It.Child.Grandchild", Grandchild.path()
+      test.equal "NS.It.Child.Grandchild", NS.It.Child.Grandchild.path()
       test.done()
 
     "nested namespaces nest paths deeply, and don't require a name": (test) ->
@@ -320,12 +516,12 @@ module.exports = extend module.exports,
       test
       test.done()
 
-#   "Mixin":
-#     "extended tests whether a mixin has been mixed into a constructor": (test) ->
+#   "Module":
+#     "extended tests whether a Module has been mixed into a constructor": (test) ->
 #       test.ok NS.Mixer.extended(NS.Mixable)
 #       test.done()
 
-#     "included callback called when mixin mixed in": (test) ->
+#     "included callback called when Module mixed in": (test) ->
 #       test.equal "Powerful Stuff", NS.Mixable.mixer
 #       test.done()
 
@@ -337,22 +533,3 @@ module.exports = extend module.exports,
 #       test.equal "INSTANCEVALUE", NS.Mixable.new().instanceKey
 #       test.done()
 
-  "Delegate":
-    setUp: (callback) ->
-      @subject = NS.Delegating.new
-        foo: field: "FIELD"
-        bar: (a: "PROP", b: -> "FUNCTION")
-
-      callback()
-
-    "delegates fields": (test) ->
-      test.equal "FIELD", @subject.field()
-      test.done()
-
-    "delegates multi": (test) ->
-      test.equal "PROP", @subject.a()
-      test.done()
-
-    "delegates to functions": (test) ->
-      test.equal "FUNCTION", @subject.b()
-      test.done()

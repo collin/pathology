@@ -1,5 +1,5 @@
 puts = console.log
-{flatten, extend, each, any, map, include, clone, isFunction, bindAll, isObject, clone, defer} = require("underscore")
+{flatten, extend, find, filter, each, any, map, include, clone, indexOf, isFunction, bindAll, isObject, clone, defer} = require("underscore")
 
 # Simplistic Polyfill for Object.create taken from Mozilla documentation.
 Object.create ?= (object) ->
@@ -26,7 +26,7 @@ META_KEY = id("_meta")
 # path we traverse UP the "_container" chain and join "_name"s with a "."
 NAME_KEY = "_name"
 CONTAINER_KEY = "_container"
-MIXINS_KEY = "_mixins"
+ModuleS_KEY = "_Modules"
 DESCENDANTS_KEY = "_descendants"
 INHERITABLES_KEY = "_inheritableAttrs"
 
@@ -57,6 +57,7 @@ nameWriter = (name, object, container) ->
   for key, value of object
     continue if key is "__super__"
     continue if key is "constructor"
+    continue if value is undefined
     if Namespace.constructed(value)
       nameWriter(key, value, object)
       continue
@@ -140,6 +141,67 @@ Kernel =
     container_path.push @_name()
     container_path
 
+superWrap = (fn, superFunction) ->
+  newFunction = ->
+    @_super = superFunction
+    ret = fn.call(this, arguments)
+    delete @_super
+    ret
+  newFunction.toString = -> "/*superWrapped*/ #{fn.toString()}"
+  newFunction.original = fn
+  newFunction
+
+superScanUp = (klass, slot) ->
+  find klass.ancestors[..-2].reverse(), (ancestor) -> 
+    ancestor::hasOwnProperty(slot) and isFunction ancestor::[slot] 
+
+superScanDown = (klass, slot) ->
+  filter klass.descendants, (descendant) ->
+    descendant::hasOwnProperty(slot) and isFunction descendant::[slot]
+
+KernelObject =
+  def: (slots) ->
+    for key, value of slots
+      if isFunction value
+        if ancestor = superScanUp(this, key)
+          superFunction = ancestor::[key]#.original ? ancestor::[key]
+          @prototype[key] = superWrap(value, superFunction)
+        else 
+          @prototype[key] = value
+
+        for descendant in superScanDown(this, key)
+          ancestor = superScanUp(descendant, key)
+
+          underFunction = descendant::[key]
+          superFunction = ancestor::[key]
+          descendant::[key] = superWrap(underFunction.original ? underFunction, superFunction)
+
+      else
+        @prototype[key] = value
+
+  defs: (slots) ->
+    extend this, slots
+
+  delegate: (names..., options) ->
+    unless options.to
+      throw new Error("""In #{this} you MUST specify a `to' in your delegators.
+                         from: @delegate #{JSON.stringify(names).replace('[','').replace(']','')}, #{JSON.stringify options} """)
+
+    each flatten(names), (name) =>
+      @prototype[name] = ->
+        target = @[options.to]
+        target = target.call(this) if target.call
+
+        value = target[name]
+        value = value.call(target) if value.call
+
+        return value
+
+  include: (modules...) ->
+    @_include(module) for module in modules
+
+KernelModule = clone KernelObject
+delete KernelModule.def
 
 BootstrapPrototype = extend {}, Kernel,
   # NOT PUBLIC
@@ -193,33 +255,19 @@ BootstapStatics = extend {}, Kernel,
 
     item
 
-  def: (slots) ->
-    extend @prototype, slots
-
-  defs: (slots) ->
-    extend this, slots
-
-  open: (body) ->
-    body.call(this, this)
+  _include: (module) ->
+    module.appendFeatures(this)
+    @ancestors.splice @ancestors.length - 1, 0, module
+    prior = @ancestors[@ancestors.length - 2]
+    for descendant in @descendants
+      index = indexOf descendant.ancestors, prior
+      descendant.ancestors.splice index - 1, 0, module
 
   property: (name) ->
     Property.new(name, this)
 
-  delegate: (names..., options) ->
-    unless options.to
-      throw new Error("""In #{this} you MUST specify a `to' in your delegators.
-                         from: @delegate #{JSON.stringify(names).replace('[','').replace(']','')}, #{JSON.stringify options} """)
-
-    each flatten(names), (name) =>
-      @prototype[name] = ->
-        target = @[options.to]
-        target = target.call(this) if target.call
-
-        value = target[name]
-        value = value.call(target) if value.call
-
-        return value
-
+  open: (body) ->
+    body.call(this, this)
 
   toString: ->
     @path()
@@ -243,9 +291,11 @@ BootstapStatics = extend {}, Kernel,
   
     child.descendants = []
     @_pushExtension(child)
+    child.pushInheritableItem("ancestors", child, 0)
     meta = id: id()
     writeMeta child, meta
-    bindAll child, "def", "defs", "delegate"
+    extend child, KernelObject
+    bindAll child, "def", "defs", "delegate", "include"
     child.open(body) if body and body.call
     return child
 
@@ -261,6 +311,8 @@ BootstapStatics = extend {}, Kernel,
 
 
 Bootstrap = inherits new Function, BootstrapPrototype, BootstapStatics
+
+Bootstrap.pushInheritableItem 'ancestors', Bootstrap
 
 Namespace = Bootstrap.extend ({def}) ->
   def initialize: (name) ->
@@ -278,9 +330,44 @@ Namespace = Bootstrap.extend ({def}) ->
 
   def _readName: ->
 
-# Bootstrap.inheritableAttr("mixins", [])
+# Bootstrap.inheritableAttr("Modules", [])
 
-# Mixin = Bootstrap.extend
+Module = Bootstrap.extend ({defs}) ->
+  defs appendFeatures: (target) ->
+    @appendedTo ?= []
+    @appendedTo.push target
+    target.def @prototype
+
+  defs def: (slots) ->
+    extend @prototype, slots
+    for target in @appendedTo ? []
+      target.def slots
+
+
+  # No extending/instantiating Modules
+  defs extend: (body) ->
+    NamelessObjectsExist = true
+    child = inherits(this, {})
+    child[META_KEY] = undefined
+    child.inheritableAttrs = clone(@inheritableAttrs)
+    for name in @inheritableAttrs
+      continue unless @hasOwnProperty(name)
+      child[name] = clone @[name]
+  
+    child.descendants = []
+    @_pushExtension(child)
+    child.pushInheritableItem("ancestors", child, 0)
+    meta = id: id()
+    writeMeta child, meta
+    extend child, KernelModule
+    bindAll child, "def", "defs", "delegate", "include"
+    child.open(body) if body and body.call
+    return child
+
+  defs new: undefined
+
+  # included: ->
+
 #   initialize: (config={}) ->
 #     @included = config.included ? ->
 #     @instance = config.instance ? {}
@@ -288,7 +375,7 @@ Namespace = Bootstrap.extend ({def}) ->
 
 #   extends: (constructor) ->
 #     return if @extended(constructor)
-#     constructor.pushInheritableItem "mixins", this
+#     constructor.pushInheritableItem "Modules", this
 #     @included.call(constructor)
 
 #     for key, value of @instance
@@ -298,7 +385,7 @@ Namespace = Bootstrap.extend ({def}) ->
 #       constructor[key] = value
 
 #   extended: (constructor) ->
-#     include(constructor.mixins, this)
+#     include(constructor.Modules, this)
 
 Property = Bootstrap.extend ({def}) ->
 
@@ -319,8 +406,7 @@ Property.Instance = Bootstrap.extend ({def}) ->
 
 
 writeMeta Namespace, _name: "Namespace"
-# writeMeta Mixin, _name: "Mixin"
-# writeMeta Delegate, _name: "Delegate"
+writeMeta Module, _name: "Module"
 writeMeta Property, _name: "Property"
 writeMeta Property.Instance, _name: "Instance"
 
@@ -331,6 +417,6 @@ Pathology.Object = Bootstrap
 Pathology.readMeta = readMeta
 Pathology.writeMeta = writeMeta
 Pathology.Namespace = Namespace
-# Pathology.Mixin = Mixin
+Pathology.Module = Module
 Pathology.Property = Property
 
