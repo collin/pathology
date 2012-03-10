@@ -268,7 +268,7 @@ Root.Mixable = Pathology.Object.extend()
 Root.Mixer = Pathology.Mixin.extend ({def, defs}) ->
   defs staticKey: "Static Value"
 
-  def included: ->
+  defs included: ->
     puts "included in Root.Mixable? ", this is Root.Mixable
 
   def instance:
