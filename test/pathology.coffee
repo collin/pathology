@@ -15,18 +15,16 @@ It = NS.It = Pathology.Object.extend ({def}) ->
 Child = NS.It.Child = It.extend()
 Grandchild = NS.It.Child.Grandchild = Child.extend()
 
-# NS.Mixable = Pathology.Object.extend()
-# NS.Mixer = M.new
-#   included: ->
-#     @mixer = "Powerful Stuff"
+NS.Mixable = Pathology.Object.extend()
+NS.Mixer = M.extend ({def, defs}) ->
+  defs included: ->
+    @mixer = "Powerful Stuff"
 
-#   static:
-#     staticKey: "VALUE"
+  defs staticKey: "VALUE"
 
-#   instance:
-#     instanceKey: "INSTANCEVALUE"
+  def instanceKey: "INSTANCEVALUE"
 
-# NS.Mixer.extends(NS.Mixable)
+NS.Mixable.include NS.Mixer
 
 
 module.exports =
@@ -516,20 +514,131 @@ module.exports = extend module.exports,
       test
       test.done()
 
-#   "Module":
-#     "extended tests whether a Module has been mixed into a constructor": (test) ->
-#       test.ok NS.Mixer.extended(NS.Mixable)
-#       test.done()
+  "Module":
+    "extended tests whether a Module has been mixed into a constructor": (test) ->
+      test.ok NS.Mixer.extended(NS.Mixable)
+      test.done()
 
-#     "included callback called when Module mixed in": (test) ->
-#       test.equal "Powerful Stuff", NS.Mixable.mixer
-#       test.done()
+    "included callback called when Module mixed in": (test) ->
+      test.equal "Powerful Stuff", NS.Mixable.mixer
+      test.done()
 
-#     "static is mixed into constructor": (test) ->
-#       test.equal "VALUE", NS.Mixable.staticKey
-#       test.done()
+    "static is mixed into constructor": (test) ->
+      test.equal "VALUE", NS.Mixable.staticKey
+      test.done()
 
-#     "instance is mixed into constructor prototype": (test) ->
-#       test.equal "INSTANCEVALUE", NS.Mixable.new().instanceKey
-#       test.done()
+    "instance is mixed into constructor prototype": (test) ->
+      test.equal "INSTANCEVALUE", NS.Mixable.new().instanceKey
+      test.done()
+
+    "super":
+      "including a module in the middle of an existing super chain": (test) ->
+        Parent = O.extend ({def}) ->
+          def method: -> "parent"
+
+        Child = Parent.extend ({def}) ->
+          def method: -> @_super() + ", child"
+
+        Grandchild = Child.extend ({def}) ->
+          def method: -> @_super() + ", grandchild"
+
+        Uncle = M.extend ({def}) ->
+          def method: -> @_super() + ", uncle"
+
+        Child.include Uncle
+
+        test.equal "parent, uncle, child, grandchild", Grandchild.new().method()
+
+        test.done()
+
+      "including two modules in the middle of an existing super chain": (test) ->
+        Parent = O.extend ({def}) ->
+          def method: -> "parent"
+
+        Child = Parent.extend ({def}) ->
+          def method: -> @_super() + ", child"
+
+        Grandchild = Child.extend ({def}) ->
+          def method: -> @_super() + ", grandchild"
+
+        Uncle = M.extend ({def}) ->
+          def method: -> @_super() + ", uncle"
+
+        Aunt = M.extend ({def}) ->
+          def method: -> @_super() + ", aunt"
+
+        Child.include Uncle
+        Child.include Aunt
+
+        test.equal "parent, uncle, aunt, child, grandchild", Grandchild.new().method()
+
+        test.done()
+
+      "extend a class hierarchy that already has modules included": (test) ->
+        X = Pathology.Namespace.new("X")
+        Parent = X.Parent = O.extend ({def}) ->
+          def method: -> "parent"
+
+        Child = X.Child = Parent.extend ({def}) ->
+          def method: -> @_super() + ", child"
+
+        Grandchild = X.Grandchild = Child.extend ({def}) ->
+          def method: -> @_super() + ", grandchild"
+
+        Uncle = X.Uncle  = M.extend ({def}) ->
+          def method: -> @_super() + ", uncle"
+
+        Aunt = X.Aunt = M.extend ({def}) ->
+          def method: -> @_super() + ", aunt"
+
+        Child.include Uncle
+        Child.include Aunt
+
+        GreatGrandchild = X.GreatGrandchild = Grandchild.extend ({def}) ->
+          def method: -> @_super() + ", greatgrandchild"
+
+        test.equal "parent, uncle, aunt, child, grandchild, greatgrandchild", GreatGrandchild.new().method()
+
+        test.done()
+
+      "def method after including module": (test) ->
+        Parent = O.extend ({def}) ->
+          def method: -> "parent"
+
+        Child = Parent.extend() 
+
+        Grandchild = Child.extend ({def}) ->
+          def method: -> @_super() + ", grandchild"
+
+        Uncle = M.extend ({def}) ->
+          def method: -> @_super() + ", uncle"
+
+        Child.include Uncle
+        Child.def method: -> @_super() + ", child"
+
+        test.equal "parent, uncle, child, grandchild", Grandchild.new().method()
+
+        test.done()
+
+
+      "include module in class after creating object": (test) ->
+        Parent = O.extend ({def}) ->
+          def method: -> "parent"
+
+        Child = Parent.extend() 
+
+        Grandchild = Child.extend ({def}) ->
+          def method: -> @_super() + ", grandchild"
+
+        grandchild = Grandchild.new()
+
+        Uncle = M.extend ({def}) ->
+          def method: -> @_super() + ", uncle"
+
+        Child.include Uncle
+        Child.def method: -> @_super() + ", child"
+
+        test.equal "parent, uncle, child, grandchild", grandchild.method()
+
+        test.done()
 

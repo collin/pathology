@@ -1,5 +1,5 @@
 puts = console.log
-{flatten, extend, find, filter, each, any, map, include, clone, indexOf, isFunction, bindAll, isObject, clone, defer} = require("underscore")
+{flatten, extend, first, find, keys, filter, each, any, map, include, clone, indexOf, isFunction, bindAll, isObject, clone, defer} = require("underscore")
 
 # Simplistic Polyfill for Object.create taken from Mozilla documentation.
 Object.create ?= (object) ->
@@ -57,12 +57,12 @@ nameWriter = (name, object, container) ->
   for key, value of object
     continue if key is "__super__"
     continue if key is "constructor"
-    continue if value is undefined
+    continue if value in [undefined, null]
     if Namespace.constructed(value)
       nameWriter(key, value, object)
       continue
     continue unless object.hasOwnProperty(key)
-    continue if value.__super__ is undefined
+    continue if value.__super__ in [undefined, null]
     nameWriter(key, value, object)
 
 nameFinder = (namespace) ->
@@ -141,41 +141,55 @@ Kernel =
     container_path.push @_name()
     container_path
 
-superWrap = (fn, superFunction) ->
+K = new Function
+
+moduleChain = (fn=K, superFunction) ->
+  fn = fn.original ? fn
+
   newFunction = ->
     @_super = superFunction
-    ret = fn.call(this, arguments)
+    ret = fn.apply(this, arguments)
     delete @_super
     ret
   newFunction.toString = -> "/*superWrapped*/ #{fn.toString()}"
   newFunction.original = fn
+  # newFunction._super = superFunction
   newFunction
 
-superScanUp = (klass, slot) ->
-  find klass.ancestors[..-2].reverse(), (ancestor) -> 
-    ancestor::hasOwnProperty(slot) and isFunction ancestor::[slot] 
-
-superScanDown = (klass, slot) ->
-  filter klass.descendants, (descendant) ->
-    descendant::hasOwnProperty(slot) and isFunction descendant::[slot]
+superChain = (slot, fn=K, klass) ->
+  newFunction = ->
+    @_super = klass.__super__[slot]
+    ret = fn.apply(this, arguments)
+    delete @_super
+    ret
+  newFunction.toString = -> "/*superWrapped*/ #{fn.toString()}"
+  newFunction.original = fn
+  # newFunction._super = superFunction
+  newFunction
 
 KernelObject =
-  def: (slots) ->
+  def: (slots, source=this) ->
     for key, value of slots
       if isFunction value
-        if ancestor = superScanUp(this, key)
-          superFunction = ancestor::[key]#.original ? ancestor::[key]
-          @prototype[key] = superWrap(value, superFunction)
-        else 
-          @prototype[key] = value
+        chained = @moduleChains[key] ?= []
+        anyChained = any chained
 
-        for descendant in superScanDown(this, key)
-          ancestor = superScanUp(descendant, key)
+        if source is this and anyChained
+          @prototype[key] = moduleChain value, (first chained)
 
-          underFunction = descendant::[key]
-          superFunction = ancestor::[key]
-          descendant::[key] = superWrap(underFunction.original ? underFunction, superFunction)
+        else if source is this and not anyChained
+          @prototype[key] = superChain(key, value, this)
+        
+        else if source isnt this
+          if anyChained
+            chained.unshift moduleChain value, (first chained)
+          else
+            chained.unshift superChain(key, value, this)
 
+          if @prototype.hasOwnProperty(key)
+            @prototype[key] = moduleChain @prototype[key], (first chained)
+          else
+            @prototype[key] = (first chained)
       else
         @prototype[key] = value
 
@@ -290,6 +304,8 @@ BootstapStatics = extend {}, Kernel,
       child[name] = clone @[name]
   
     child.descendants = []
+    child.moduleChains = {}
+
     @_pushExtension(child)
     child.pushInheritableItem("ancestors", child, 0)
     meta = id: id()
@@ -336,13 +352,31 @@ Module = Bootstrap.extend ({defs}) ->
   defs appendFeatures: (target) ->
     @appendedTo ?= []
     @appendedTo.push target
-    target.def @prototype
+
+    slots = {}
+    for key, value of @prototype
+      continue unless @::hasOwnProperty(key)
+      continue if key is "constructor"
+      slots[key] = value
+
+    target.def slots, this
+    target.open @included if @included
+
+    statics = {}
+    for key, value of this
+      continue if key in keys(Module)
+      continue if key in keys(Bootstrap)
+      statics[key] = value
+
+    target.defs statics
 
   defs def: (slots) ->
     extend @prototype, slots
     for target in @appendedTo ? []
       target.def slots
 
+  defs extended: (module) ->
+    (this in module.ancestors) ? false
 
   # No extending/instantiating Modules
   defs extend: (body) ->
@@ -366,27 +400,6 @@ Module = Bootstrap.extend ({defs}) ->
 
   defs new: undefined
 
-  # included: ->
-
-#   initialize: (config={}) ->
-#     @included = config.included ? ->
-#     @instance = config.instance ? {}
-#     @static = config.static ? {}
-
-#   extends: (constructor) ->
-#     return if @extended(constructor)
-#     constructor.pushInheritableItem "Modules", this
-#     @included.call(constructor)
-
-#     for key, value of @instance
-#       constructor::[key] = value
-
-#     for key, value of @static
-#       constructor[key] = value
-
-#   extended: (constructor) ->
-#     include(constructor.Modules, this)
-
 Property = Bootstrap.extend ({def}) ->
 
   def initialize: (@name, @_constructor) ->
@@ -402,8 +415,6 @@ Property.Instance = Bootstrap.extend ({def}) ->
   def initialize: (@object) ->
   def get: -> @value
   def set: (value) -> @value = value
-
-
 
 writeMeta Namespace, _name: "Namespace"
 writeMeta Module, _name: "Module"
