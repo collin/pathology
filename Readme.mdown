@@ -323,9 +323,19 @@ awesome.baz()
 # => "baz"
 ```
 
+### Map
+
+# TODO: documentme
+
+### Set
+
+# TODO: documentme
+
+
 # Changelog
 
 ## 0.2.0
+* added map/set
 * mixin system
 * added a delegate mixin
 * inheritable attributes
