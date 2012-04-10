@@ -26,9 +26,13 @@ META_KEY = id("_meta")
 # path we traverse UP the "_container" chain and join "_name"s with a "."
 NAME_KEY = "_name"
 CONTAINER_KEY = "_container"
-ModuleS_KEY = "_Modules"
+MODULES_KEY = "_modules"
 DESCENDANTS_KEY = "_descendants"
 INHERITABLES_KEY = "_inheritableAttrs"
+
+# Checked to see if we need to traverse namespaces to
+# find named objects. 
+NAMELESS_OBJECTS_EXIST = true
 
 # use Pathology.writeMeta and Pathology.readMeta to access Pathology metadata.
 
@@ -38,7 +42,7 @@ writeMeta = (object, data={}) ->
   for key, value of data
     meta[key] = value unless readMeta object, key
 
-readMeta = (object, key) ->
+readMeta = (object={}, key) ->
   object[META_KEY]?[key]
 
 # nameWriter, nameFinder and findNames work as a team
@@ -57,7 +61,8 @@ nameWriter = (name, object, container) ->
   for key, value of object
     continue if key is "__super__"
     continue if key is "constructor"
-    continue if value in [undefined, null]
+    continue if value is undefined
+    continue if value is null
     if Namespace.constructed(value)
       nameWriter(key, value, object)
       continue
@@ -65,8 +70,16 @@ nameWriter = (name, object, container) ->
     continue if value.__super__ in [undefined, null]
     nameWriter(key, value, object)
 
+NAME_FINDER_WARNINGS = {}
 nameFinder = (namespace) ->
   for name, object of namespace
+    if object is undefined
+      # FIXME: sensible error message
+      warning = "#{name} is undefined in a namespace: '#{readMeta namespace, NAME_KEY}'"
+      continue if NAME_FINDER_WARNINGS[warning]
+      NAME_FINDER_WARNINGS[warning] = true
+      console.warn warning
+      continue 
     if Namespace.constructed(object)
       meta = {}
       meta[NAME_KEY] = name
@@ -77,17 +90,16 @@ nameFinder = (namespace) ->
       nameWriter name, object, namespace
 
 findNames = ->
-  return if NamelessObjectsExist is false
-  NamelessObjectsExist = false
+  return if NAMELESS_OBJECTS_EXIST is false
+  NAMELESS_OBJECTS_EXIST = false
   for key, namespace of Namespaces
     nameFinder(namespace)
 
-# NamelessObjectsExist is a simple flag to tell us when there are
+# NAMELESS_OBJECTS_EXIST is a simple flag to tell us when there are
 # Constructors or Namespaces that don't have names. This way we only
 # have to traverse the object space when there are objects missing their
 # names.
 
-NamelessObjectsExist = true
 ctor = ->
 
 # mad props to Backbone.js
@@ -97,7 +109,11 @@ inherits = (parent, protoProps, staticProps) ->
   else
     child = -> parent.apply(this, arguments)
 
-  extend(child, parent)
+  for key, value of parent
+    continue if parent[key] is undefined
+    continue unless parent.hasOwnProperty(key)
+    continue if parent[key].hasOwnProperty('descendants')
+    child[key] = parent[key]
   
   ctor.prototype = parent.prototype
   child.prototype = new ctor()
@@ -108,7 +124,7 @@ inherits = (parent, protoProps, staticProps) ->
   if staticProps
     extend child, staticProps
 
-  child.prototype.constructor = child
+  child::constructor = child
   child.__super__ = parent.prototype
 
   return child
@@ -122,17 +138,17 @@ Kernel =
     target
 
   path: ->
-    findNames()
+    findNames() if NAMELESS_OBJECTS_EXIST
     @_path().join(".")
 
   _name: ->
-    findNames()
+    findNames() if NAMELESS_OBJECTS_EXIST
     readMeta this, NAME_KEY
 
   _readId: -> readMeta this, "id"
 
   _container: ->
-    findNames()
+    findNames() if NAMELESS_OBJECTS_EXIST
     readMeta this, CONTAINER_KEY
 
   _path: ->
@@ -144,28 +160,32 @@ Kernel =
 K = new Function
 
 moduleChain = (fn=K, superFunction) ->
+  return fn unless fn.toString().match(/this\._super/)
+
   fn = fn.original ? fn
 
-  newFunction = ->
+  _super = ->
     @_super = superFunction
     ret = fn.apply(this, arguments)
     delete @_super
     ret
-  newFunction.toString = -> "/*superWrapped*/ #{fn.toString()}"
-  newFunction.original = fn
-  # newFunction._super = superFunction
-  newFunction
+  _super.toString = -> "/*superWrapped*/ #{fn.toString()}"
+  _super.original = fn
+  # _super._super = superFunction
+  _super
 
 superChain = (slot, fn=K, klass) ->
-  newFunction = ->
+  return fn unless fn.toString().match(/this\._super/)
+
+  _super = ->
     @_super = klass.__super__[slot]
     ret = fn.apply(this, arguments)
     delete @_super
     ret
-  newFunction.toString = -> "/*superWrapped*/ #{fn.toString()}"
-  newFunction.original = fn
-  # newFunction._super = superFunction
-  newFunction
+  _super.toString = -> "/*superWrapped*/ #{fn.toString()}"
+  _super.original = fn
+  # _super._super = superFunction
+  _super
 
 KernelObject =
   def: (slots, source=this) ->
@@ -207,7 +227,7 @@ KernelObject =
         target = target.call(this) if target.call
 
         value = target[name]
-        value = value.call(target) if value.call
+        value = value.apply(target, arguments) if value.call
 
         return value
 
@@ -226,12 +246,15 @@ BootstrapPrototype = extend {}, Kernel,
   propertiesThatCouldBe: (test) ->
     hits = []
     for name, property of @constructor.properties
-      next unless property.couldBe(test)
+      continue unless property.couldBe(test)
       hits.push @[name]
     hits
 
   toString: ->
-    "<#{@constructor.path()}:#{@objectId()}>"
+    if @inspect
+      "<#{@constructor.path()}:#{@objectId()} #{@inspect()} >"
+    else
+      "<#{@constructor.path()}:#{@objectId()}>"
 
 BootstapStatics = extend {}, Kernel,
   descendants: []
@@ -277,9 +300,6 @@ BootstapStatics = extend {}, Kernel,
       index = indexOf descendant.ancestors, prior
       descendant.ancestors.splice index - 1, 0, module
 
-  property: (name) ->
-    Property.new(name, this)
-
   open: (body) ->
     body.call(this, this)
 
@@ -287,6 +307,9 @@ BootstapStatics = extend {}, Kernel,
     @path()
 
   constructed: (object) ->
+    if object is undefined
+      console.warn "Broken constructor"
+      return false
     object.constructor is this
 
   _pushExtension: (extension) ->
@@ -295,7 +318,7 @@ BootstapStatics = extend {}, Kernel,
 
   # Extend an object.
   extend: (body) ->
-    NamelessObjectsExist = true
+    NAMELESS_OBJECTS_EXIST = true
     child = inherits(this, {})
     child[META_KEY] = undefined
     child.inheritableAttrs = clone(@inheritableAttrs)
@@ -320,15 +343,15 @@ BootstapStatics = extend {}, Kernel,
     object = new this()
     object[META_KEY] = undefined
     writeMeta object, id: id()
-    # object.constructor.name = object.constructor.toString()
     object._createProperties()
     @prototype.initialize.apply(object, arguments) if @prototype.initialize
     object
 
 
 Bootstrap = inherits new Function, BootstrapPrototype, BootstapStatics
-
 Bootstrap.pushInheritableItem 'ancestors', Bootstrap
+Bootstrap.property = (name) ->
+  Property.new(name, this)
 
 Namespace = Bootstrap.extend ({def}) ->
   def initialize: (name) ->
@@ -338,10 +361,10 @@ Namespace = Bootstrap.extend ({def}) ->
       meta[NAME_KEY] = name
       writeMeta this, meta
     else
-      NamelessObjectsExist = true
+      NAMELESS_OBJECTS_EXIST = true
 
   def name: ->
-    findNames()
+    findNames() if NAMELESS_OBJECTS_EXIST
     readMeta this, NAME_KEY
 
   def _readName: ->
@@ -364,6 +387,9 @@ Module = Bootstrap.extend ({defs}) ->
 
     statics = {}
     for key, value of this
+      # FIXME: figure out a way to allow for overriding
+      # built-in methods.
+      statics[key] = value if key is "property"
       continue if key in keys(Module)
       continue if key in keys(Bootstrap)
       statics[key] = value
@@ -380,7 +406,7 @@ Module = Bootstrap.extend ({defs}) ->
 
   # No extending/instantiating Modules
   defs extend: (body) ->
-    NamelessObjectsExist = true
+    NAMELESS_OBJECTS_EXIST = true
     child = inherits(this, {})
     child[META_KEY] = undefined
     child.inheritableAttrs = clone(@inheritableAttrs)
@@ -402,25 +428,71 @@ Module = Bootstrap.extend ({defs}) ->
 
 Property = Bootstrap.extend ({def}) ->
 
-  def initialize: (@name, @_constructor) ->
+  def initialize: (@name, @_constructor, @options={}) ->
+    @options.name = @name
     @_constructor.writeInheritableValue 'properties', @name, this
 
   def couldBe: (test) ->
     return true if test is @name
     false
 
-  def instance: (object) -> @constructor.Instance.new(object)
+  def instance: (object) -> @constructor.Instance.new(object, @options)
 
 Property.Instance = Bootstrap.extend ({def}) ->
-  def initialize: (@object) ->
+  def inspect: ->
+    " #{@options.name}: #{@get?()} @object: #{@object}"
+
+  def initialize: (@object, @options={}) ->
+    throw new Error "@object MUST NOT be null: was: #{@object}" unless @object
   def get: -> @value
   def set: (value) -> @value = value
+
+
+HASH_KEY = "_hash"
+Map = Bootstrap.extend ({def}) ->
+  def initialize: (@default=(->)) ->
+    @map = {}
+
+  def get: (key) ->
+    @map[@hash(key)] ?= @default()
+
+  def set: (key, value) ->
+    @map[@hash(key)] = value ? @default()
+
+  def del: (key) ->
+    @map[@hash(key)] = undefined
+    
+
+  def hash: (key) ->
+    return "undefined" if key is undefined
+    return "null" if key is null
+    return "NaN" if key is NaN
+    unless hash = readMeta(key, HASH_KEY)
+      data = {}
+      hash = data[HASH_KEY] = Pathology.id()
+      writeMeta key, data
+
+    hash
+
+    
+# TODO: implement Map on an Array to allow for set operations.
+Set = Map.extend ({def}) ->
+  def add: (item) ->
+    @set(item, true)
+
+  def remove: (item) ->
+    @del(item)
+
+  def include: (item) ->
+    @get(item) is true
+    
 
 writeMeta Namespace, _name: "Namespace"
 writeMeta Module, _name: "Module"
 writeMeta Property, _name: "Property"
 writeMeta Property.Instance, _name: "Instance"
-
+writeMeta Map, _name: "Map"
+writeMeta Set, _name: "Set"
 
 Pathology = module.exports = Namespace.new("Pathology")
 Pathology.id = id
@@ -430,4 +502,6 @@ Pathology.writeMeta = writeMeta
 Pathology.Namespace = Namespace
 Pathology.Module = Module
 Pathology.Property = Property
-
+Pathology.Namespaces = Namespaces
+Pathology.Map = Map
+Pathology.Set = Set

@@ -15,6 +15,7 @@ It = NS.It = Pathology.Object.extend ({def}) ->
 Child = NS.It.Child = It.extend()
 Grandchild = NS.It.Child.Grandchild = Child.extend()
 
+
 NS.Mixable = Pathology.Object.extend()
 NS.Mixer = M.extend ({def, defs}) ->
   defs included: ->
@@ -39,6 +40,13 @@ module.exports =
         passedIn = null
         Extended = O.extend (klass) -> passedIn = klass
         test.equal Extended, passedIn
+        test.done()
+
+      "constructors in extended object are not placed on child": (test) ->
+        A = O.extend()
+        A.B = O.extend()
+        C = A.extend()
+        test.equal undefined, C.B
         test.done()
 
     "def":
@@ -514,6 +522,45 @@ module.exports = extend module.exports,
       test
       test.done()
 
+  "Set":
+    "truthfully reports member inclusion": (test) ->
+      s = Pathology.Set.new()
+      o = new Object
+      s.add o
+      test.equal true, s.include(o)
+      test.done()
+
+    "truthfully reports member exclusion": (test) ->
+      s = Pathology.Set.new()
+      o = new Object
+      s.add o
+      s.remove o
+      test.equal false, s.include(o)
+      test.done()
+
+  "Map":
+    "get/set keys in a map w/any object": (test) ->
+      m = Pathology.Map.new()
+      key = new Object
+      m.set(key, "value")
+      test.equal "value", m.get(key)
+      test.done()
+
+    "get default values for items not already set": (test) ->
+      m = Pathology.Map.new(-> "DEFAULT :D")
+      key = new Object
+      test.equal "DEFAULT :D", m.get(key)
+      test.done()
+
+    "del deletes the value at a key": (test) ->
+      m = Pathology.Map.new()
+      key = new Object
+      m.set key, "value"
+      m.del(key)
+      test.equal undefined, m.get(key)
+      test.done()
+
+  # "tes":
   "Module":
     "extended tests whether a Module has been mixed into a constructor": (test) ->
       test.ok NS.Mixer.extended(NS.Mixable)
