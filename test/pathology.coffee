@@ -538,6 +538,28 @@ module.exports = extend module.exports,
       test.equal false, s.include(o)
       test.done()
 
+    "implements each enumerator": (test) ->
+      s = Pathology.Set.new()
+      s.add 1
+      s.add 2
+      s.add 3
+
+      set = []
+
+      s.each (member) -> set.push member
+      test.deepEqual [1,2,3], set
+      test.done()
+
+    "set can be emptied": (test) ->
+      s = Pathology.Set.new()
+      s.add 1
+      s.add 2
+      s.add 3
+      s.empty()
+
+      test.deepEqual {}, s.map
+      test.done()
+
   "Map":
     "hashes undefined as 'undefined'": (test) ->
       m = Pathology.Map.new()

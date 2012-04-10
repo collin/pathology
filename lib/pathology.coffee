@@ -484,13 +484,21 @@ Map = Bootstrap.extend ({def}) ->
 # TODO: implement Map on an Array to allow for set operations.
 Set = Map.extend ({def}) ->
   def add: (item) ->
-    @set(item, true)
+    @set(item, item)
 
   def remove: (item) ->
     @del(item)
 
   def include: (item) ->
-    @get(item) is true
+    @get(item) isnt undefined
+
+  def each: (fn) ->
+    fn(value) for key, value of @map
+
+  def empty: ->
+    @map = {}
+    
+    
     
 
 writeMeta Namespace, _name: "Namespace"
