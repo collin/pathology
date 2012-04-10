@@ -539,6 +539,46 @@ module.exports = extend module.exports,
       test.done()
 
   "Map":
+    "hashes undefined as 'undefined'": (test) ->
+      m = Pathology.Map.new()
+      test.equal "undefined", m.hash(undefined)
+      test.done()
+
+    "hashes null as 'null'": (test) ->
+      m = Pathology.Map.new()
+      test.equal "null", m.hash(null)
+      test.done()
+
+    "hashes NaN as 'NaN'": (test) ->
+      m = Pathology.Map.new()
+      test.equal "NaN", m.hash(NaN)
+      test.done()
+
+    "hashes true as 'true'": (test) ->
+      m = Pathology.Map.new()
+      test.equal "true", m.hash(true)
+      test.done()
+
+    "hashes false as 'false'": (test) ->
+      m = Pathology.Map.new()
+      test.equal "false", m.hash(false)
+      test.done()
+      
+    "hashes undefined as 'undefined'": (test) ->
+      m = Pathology.Map.new()
+      test.equal "undefined", m.hash(undefined)
+      test.done()
+      
+    "hashes Numbers as the string of the number": (test) ->
+      m = Pathology.Map.new()
+      test.equal "77.59", m.hash("77.59")
+      test.done()
+
+    "hashes Strings as the string of the string": (test) ->
+      m = Pathology.Map.new()
+      test.equal "hello", m.hash("hello")
+      test.done()
+
     "get/set keys in a map w/any object": (test) ->
       m = Pathology.Map.new()
       key = new Object

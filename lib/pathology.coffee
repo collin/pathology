@@ -467,10 +467,16 @@ Map = Bootstrap.extend ({def}) ->
     return "undefined" if key is undefined
     return "null" if key is null
     return "NaN" if key is NaN
-    unless hash = readMeta(key, HASH_KEY)
-      data = {}
-      hash = data[HASH_KEY] = Pathology.id()
-      writeMeta key, data
+    return "true" if key is true
+    return "false" if key is false
+    switch key.constructor
+      when Number, String
+        hash = key.toString()
+      else
+        unless hash = readMeta(key, HASH_KEY)
+          data = {}
+          hash = data[HASH_KEY] = Pathology.id()
+          writeMeta key, data
 
     hash
 
