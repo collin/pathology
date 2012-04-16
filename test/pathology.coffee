@@ -561,6 +561,21 @@ module.exports = extend module.exports,
       test.done()
 
   "Map":
+    "iterate over map with each": (test) ->
+      a = {}
+      b = {}
+
+      m = Pathology.Map.new()
+      m.set a, 1
+      m.set b, 2
+
+      data = []
+
+      m.each (key, value) -> data.push(key); data.push(value)
+
+      test.deepEqual [a, 1, b, 2], data
+      test.done()
+
     "hashes undefined as 'undefined'": (test) ->
       m = Pathology.Map.new()
       test.equal "undefined", m.hash(undefined)
@@ -622,7 +637,19 @@ module.exports = extend module.exports,
       test.equal undefined, m.get(key)
       test.done()
 
-  # "tes":
+    "toObject()": 
+      "with string keys": (test) ->
+        m = Pathology.Map.new()
+        m.set("string", "keys")
+        test.equal "keys", m.toObject().string
+        test.done()
+
+      "with non-string keys throws an error": (test) ->
+        m = Pathology.Map.new()
+        m.set({}, "keys")
+        test.throws -> m.toObject()
+        test.done()
+
   "Module":
     "extended tests whether a Module has been mixed into a constructor": (test) ->
       test.ok NS.Mixer.extended(NS.Mixable)

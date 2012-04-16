@@ -63,9 +63,9 @@ nameWriter = (name, object, container) ->
     continue if key is "constructor"
     continue if value is undefined
     continue if value is null
-    if Namespace.constructed(value)
+    if value.constructor is Namespace
       nameWriter(key, value, object)
-      continue
+      continue 
     continue unless object.hasOwnProperty(key)
     continue if value.__super__ in [undefined, null]
     nameWriter(key, value, object)
@@ -130,7 +130,9 @@ inherits = (parent, protoProps, staticProps) ->
   return child
 
 Kernel =
-  objectId: -> readMeta this, "id"
+  # optimize away some readMeta calls
+  # objectId: -> readMeta this, "id"
+  objectId: -> @[META_KEY].id
 
   readPath: (path) ->
     target = this
@@ -143,13 +145,18 @@ Kernel =
 
   _name: ->
     findNames() if NAMELESS_OBJECTS_EXIST
-    readMeta this, NAME_KEY
+    # readMeta this, NAME_KEY
+    @[META_KEY][NAME_KEY]
 
-  _readId: -> readMeta this, "id"
+  # optimize away some readMeta calls
+  # _readId: -> readMeta this, "id"
+  _readId: -> @[META_KEY].id
 
   _container: ->
     findNames() if NAMELESS_OBJECTS_EXIST
-    readMeta this, CONTAINER_KEY
+    # optimize away some readMeta calls
+    @[META_KEY][CONTAINER_KEY]
+    # readMeta this, CONTAINER_KEY
 
   _path: ->
     return [@_name()] unless container = @_container()
@@ -210,6 +217,7 @@ KernelObject =
             @prototype[key] = moduleChain @prototype[key], (first chained)
           else
             @prototype[key] = (first chained)
+
       else
         @prototype[key] = value
 
@@ -247,7 +255,7 @@ BootstrapPrototype = extend {}, Kernel,
     hits = []
     for name, property of @constructor.properties
       continue unless property.couldBe(test)
-      hits.push @[name]
+      hits.push @[name] 
     hits
 
   toString: ->
@@ -341,8 +349,11 @@ BootstapStatics = extend {}, Kernel,
   # Create an object
   new: ->
     object = new this()
-    object[META_KEY] = undefined
-    writeMeta object, id: id()
+
+    # skip a lot of calls to nameWriter for object creation.
+    # writeMeta object, id: id()
+    object[META_KEY] = { id: id() }
+    
     object._createProperties()
     @prototype.initialize.apply(object, arguments) if @prototype.initialize
     object
@@ -365,7 +376,8 @@ Namespace = Bootstrap.extend ({def}) ->
 
   def name: ->
     findNames() if NAMELESS_OBJECTS_EXIST
-    readMeta this, NAME_KEY
+    # readMeta this, NAME_KEY
+    @[META_KEY][NAME_KEY]
 
   def _readName: ->
 
@@ -452,15 +464,38 @@ HASH_KEY = "_hash"
 Map = Bootstrap.extend ({def}) ->
   def initialize: (@default=(->)) ->
     @map = {}
+    @keyMap = {}
 
   def get: (key) ->
     @map[@hash(key)] ?= @default()
 
   def set: (key, value) ->
+    hash = @hash(key)
+
+    @keyMap[hash] = key
     @map[@hash(key)] = value ? @default()
 
+  def each: (fn) ->
+    for key, value of @map
+      hash = @hash(key)
+      fn @keyMap[hash], @map[hash]
+
+  # WARNING: calling with a map using non-string keys will NOT work as expected.
+  # WILL throw an error.
+  def toObject: ->
+    object = new Object()
+    @each (key, value) ->
+      if readMeta(key, HASH_KEY)
+        throw new Error "called toObject on #{@toString()} that contained a non-string key:", key, value
+      else
+        object[key] = value
+
+    return object
+
   def del: (key) ->
-    @map[@hash(key)] = undefined
+    hash = @hash(key)
+    @keyMap[hash] = undefined
+    @map[hash] = undefined
     
 
   def hash: (key) ->
@@ -497,8 +532,6 @@ Set = Map.extend ({def}) ->
 
   def empty: ->
     @map = {}
-    
-    
     
 
 writeMeta Namespace, _name: "Namespace"
