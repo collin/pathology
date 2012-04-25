@@ -80,8 +80,6 @@ Include one or modules into the class. Modules are placed into the super chain.
 If you include multiple modules that define the same method you can use super to
 call your way up the chain. Call Pathology.Object#ancestors to see the super chain.
 
-
-
 ### Pathology.Object#ancestors
 Returns a list of ancestors of this class. Ancestors is used as the "super chain"
 

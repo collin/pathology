@@ -1,5 +1,6 @@
-puts = console.log
-{flatten, extend, first, find, keys, filter, each, any, map, include, clone, indexOf, isFunction, bindAll, isObject, clone, defer} = require("underscore")
+require("underscore")
+{flatten, extend, first, find, keys, filter, each, any, map, include, clone,
+indexOf, isFunction, bindAll, isObject, clone, defer} = _
 
 # Simplistic Polyfill for Object.create taken from Mozilla documentation.
 Object.create ?= (object) ->
@@ -31,7 +32,7 @@ DESCENDANTS_KEY = "_descendants"
 INHERITABLES_KEY = "_inheritableAttrs"
 
 # Checked to see if we need to traverse namespaces to
-# find named objects. 
+# find named objects.
 NAMELESS_OBJECTS_EXIST = true
 
 # use Pathology.writeMeta and Pathology.readMeta to access Pathology metadata.
@@ -65,7 +66,7 @@ nameWriter = (name, object, container) ->
     continue if value is null
     if value.constructor is Namespace
       nameWriter(key, value, object)
-      continue 
+      continue
     continue unless object.hasOwnProperty(key)
     continue if value.__super__ in [undefined, null]
     nameWriter(key, value, object)
@@ -79,7 +80,7 @@ nameFinder = (namespace) ->
       continue if NAME_FINDER_WARNINGS[warning]
       NAME_FINDER_WARNINGS[warning] = true
       console.warn warning
-      continue 
+      continue
     if Namespace.constructed(object)
       meta = {}
       meta[NAME_KEY] = name
@@ -114,7 +115,7 @@ inherits = (parent, protoProps, staticProps) ->
     continue unless parent.hasOwnProperty(key)
     continue if parent[key].hasOwnProperty('descendants')
     child[key] = parent[key]
-  
+
   ctor.prototype = parent.prototype
   child.prototype = new ctor()
 
@@ -198,6 +199,8 @@ KernelObject =
   def: (slots, source=this) ->
     for key, value of slots
       if isFunction value
+        @pushInheritableItem('instanceMethods', key)
+
         chained = @moduleChains[key] ?= []
         anyChained = any chained
 
@@ -206,8 +209,9 @@ KernelObject =
 
         else if source is this and not anyChained
           @prototype[key] = superChain(key, value, this)
-        
+
         else if source isnt this
+          value.fromModule = source.toString()
           if anyChained
             chained.unshift moduleChain value, (first chained)
           else
@@ -222,6 +226,9 @@ KernelObject =
         @prototype[key] = value
 
   defs: (slots) ->
+    for key in keys(slots)
+      @pushInheritableItem('classMethods', key)
+
     extend this, slots
 
   delegate: (names..., options) ->
@@ -255,7 +262,7 @@ BootstrapPrototype = extend {}, Kernel,
     hits = []
     for name, property of @constructor.properties
       continue unless property.couldBe(test)
-      hits.push @[name] 
+      hits.push @[name]
     hits
 
   toString: ->
@@ -267,6 +274,30 @@ BootstrapPrototype = extend {}, Kernel,
 BootstapStatics = extend {}, Kernel,
   descendants: []
   inheritableAttrs: []
+
+  instanceMethod: (name) ->
+    if @::hasOwnProperty(name)
+      {
+        name: name
+        definedOn: @toString()
+        toString: => @::[name].toString()
+        params: @::[name].doc?.params
+        desc: @::[name].doc?.desc
+      }
+    else if @__super__
+      @__super__.constructor.instanceMethod?(name)
+
+  classMethod: (name) ->
+    if @__super__.constructor[name] is @[name]
+      @__super__.constructor.classMethod?(name)
+    else
+      {
+        name: name
+        definedOn: @toString()
+        toString: => @[name].toString()
+        params: @[name].doc?.params
+        docString: @[name].doc?.desc
+      }
 
   inheritableAttr: (name, starter) ->
     unless @hasOwnProperty(name)
@@ -333,7 +364,7 @@ BootstapStatics = extend {}, Kernel,
     for name in @inheritableAttrs
       continue unless @hasOwnProperty(name)
       child[name] = clone @[name]
-  
+
     child.descendants = []
     child.moduleChains = {}
 
@@ -353,7 +384,7 @@ BootstapStatics = extend {}, Kernel,
     # skip a lot of calls to nameWriter for object creation.
     # writeMeta object, id: id()
     object[META_KEY] = { id: id() }
-    
+
     object._createProperties()
     @prototype.initialize.apply(object, arguments) if @prototype.initialize
     object
@@ -425,14 +456,16 @@ Module = Bootstrap.extend ({defs}) ->
     for name in @inheritableAttrs
       continue unless @hasOwnProperty(name)
       child[name] = clone @[name]
-  
+
     child.descendants = []
     @_pushExtension(child)
     child.pushInheritableItem("ancestors", child, 0)
     meta = id: id()
     writeMeta child, meta
     extend child, KernelModule
+
     bindAll child, "def", "defs", "delegate", "include"
+
     child.open(body) if body and body.call
     return child
 
@@ -496,7 +529,7 @@ Map = Bootstrap.extend ({def}) ->
     hash = @hash(key)
     @keyMap[hash] = undefined
     @map[hash] = undefined
-    
+
 
   def hash: (key) ->
     return "undefined" if key is undefined
@@ -515,7 +548,7 @@ Map = Bootstrap.extend ({def}) ->
 
     hash
 
-    
+
 # TODO: implement Map on an Array to allow for set operations.
 Set = Map.extend ({def}) ->
   def add: (item) ->
@@ -532,7 +565,7 @@ Set = Map.extend ({def}) ->
 
   def empty: ->
     @map = {}
-    
+
 
 writeMeta Namespace, _name: "Namespace"
 writeMeta Module, _name: "Module"
@@ -541,7 +574,18 @@ writeMeta Property.Instance, _name: "Instance"
 writeMeta Map, _name: "Map"
 writeMeta Set, _name: "Set"
 
-Pathology = module.exports = Namespace.new("Pathology")
+Bootstrap.pushInheritableItem "classMethods", "def"
+Bootstrap.pushInheritableItem "classMethods", "defs"
+Bootstrap.pushInheritableItem "classMethods", "include"
+Bootstrap.pushInheritableItem "classMethods", "delegate"
+Bootstrap.pushInheritableItem "classMethods", "extend"
+Bootstrap.pushInheritableItem "classMethods", "new"
+Bootstrap.pushInheritableItem "classMethods", "method"
+Bootstrap.pushInheritableItem "classMethods", "pushInheritableItem"
+Bootstrap.pushInheritableItem "classMethods", "writeInheritableValue"
+Bootstrap.pushInheritableItem "classMethods", "writeInheritableAttr"
+
+window.Pathology = Namespace.new("Pathology")
 Pathology.id = id
 Pathology.Object = Bootstrap
 Pathology.readMeta = readMeta

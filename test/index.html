@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>QUnit Test Suite</title>
+  <link rel="stylesheet" href="qunit/qunit.css" type="text/css" media="screen">
+  <script type="text/javascript" src="qunit/qunit.js"></script>
+  <script type="text/javascript" src="minispade.js"></script>
+  <script type="text/javascript" src="jquery-1.7.1.js"></script>
+  <script type="text/javascript" src="underscore-spade.js"></script>
+
+  <script type="text/javascript">
+  </script>
+</head>
+<body>
+  <h1 id="qunit-header">QUnit Test Suite</h1>
+  <h2 id="qunit-banner"></h2>
+  <div id="qunit-testrunner-toolbar"></div>
+  <h2 id="qunit-userAgent"></h2>
+  <ol id="qunit-tests"></ol>
+  <div id="qunit-fixture">test markup</div>
+
+  <script>
+    document.write(unescape('%3Cscript src="../dist/Pathology-spade.js"%3E%3C/script%3E'));
+  </script>
+
+  <script type="text/javascript" src="test-spade.js"></script>
+
+  <script type="text/javascript">
+    minispade.require('pathology');
+  </script>
+
+  <script>
+    document.write(unescape('%3Cscript src="../dist/Pathology-test.js"%3E%3C/script%3E'));
+  </script>
+
+
+</body>
+</html>
