@@ -332,6 +332,11 @@ awesome.baz()
 
 # Changelog
 
+## 0.3.0
+* switched to rake pipeline
+* switched to qunit
+* switched to phantomjs
+
 ## 0.2.0
 * added map/set
 * mixin system
