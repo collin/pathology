@@ -34,9 +34,9 @@ input "lib" do
 end
 
 input "./src" do
-  match "**/*.coffee" do
+  match "pathology.coffee" do
     filter PathologyDocumentFilter
-    filter Rake::Pipeline::Web::Filters::CoffeeScriptFilter
+    coffee_script
 
     minispade rewrite_requires: true, string: true, module_id_generator: proc { |input|
      id = input.path.dup
@@ -50,15 +50,29 @@ input "./src" do
   end
 end
 
+input "./src", "pathology-doc.coffee" do
+  coffee_script
+  concat "Pathology-doc.js"
+end
+
 input "./test", "pathology.coffee" do
   coffee_script
   concat "Pathology-test.js"
 end
 
-output "test"
-input "vendor" do
-  match "underscore.js" do
-    minispade module_id_generator: proc{ "underscore" }
-    concat "underscore-spade.js"
-  end
+output "vendor"
+input "vendor", "coffeekup.coffee" do
+  coffee_script
+  minispade module_id_generator: proc{ "coffeekup" }
+  concat "coffeekup-spade.js"
+end
+
+input "vendor", "jquery.js" do
+  minispade module_id_generator: proc{ "jquery" }
+  concat "jquery-spade.js"
+end
+  
+input "vendor", "underscore.js" do
+  minispade module_id_generator: proc{ "underscore" }
+  concat "underscore-spade.js"
 end

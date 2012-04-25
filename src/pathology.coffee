@@ -288,9 +288,12 @@ BootstapStatics = extend {}, Kernel,
       @__super__.constructor.instanceMethod?(name)
 
   classMethod: (name) ->
+    if name in ["def", "defs", "include", "delegate"]
+      return Pathology.Object.classMethod(name) unless this is Pathology.Object
+
     if @__super__.constructor[name] is @[name]
       @__super__.constructor.classMethod?(name)
-    else
+    else if @[name]
       {
         name: name
         definedOn: @toString()
@@ -324,7 +327,8 @@ BootstapStatics = extend {}, Kernel,
     value
 
   pushInheritableItem: (name, item, direct=true) ->
-    @inheritableAttr(name, []).push item
+    attr = @inheritableAttr(name, [])
+    attr.push item unless include(attr, item)
     if direct is true
       for descendant in @descendants
         descendant.pushInheritableItem(name, item, false)
@@ -501,6 +505,16 @@ Map = Bootstrap.extend ({def}) ->
 
   def get: (key) ->
     @map[@hash(key)] ?= @default()
+  # @::get.doc =
+  #   params: [
+  #     ["key", "*", true]
+  #   ]
+  #   desc: """
+  #     Retrieve an object from the map. Unlike a regular JS object,
+  #     the `key` may be ANY object. If a default has been specified
+  #     and no object exists at that key, a default value will be returned.
+  #
+  #   """
 
   def set: (key, value) ->
     hash = @hash(key)
