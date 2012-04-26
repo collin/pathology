@@ -1,3 +1,4 @@
+[![Build Status](https://secure.travis-ci.org/collin/pathology.png)](http://travis-ci.org/collin/pathology)
 # Pathology
 
 ### The scientific study of the nature of ~~disease~~ JavaScript and its causes, processes, development, and consequences.

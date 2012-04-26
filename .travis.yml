@@ -1,8 +1,10 @@
+node_version:
+  - 0.6
 rvm:
   - 1.9.3
-bundler_args: --without development
 before_script:
   - "export DISPLAY=:99.0"
   - "sh -e /etc/init.d/xvfb start"
-  - "rake clean"
-script: "rake test"
+  - "bundle exec rake clean"
+  - "npm install"
+script: "bundle exec rake test"
