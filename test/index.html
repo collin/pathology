@@ -8,9 +8,7 @@
   <script type="text/javascript" src="../vendor/minispade.js"></script>
   <script type="text/javascript" src="../vendor/jquery.js"></script>
   <script type="text/javascript" src="../vendor/underscore-spade.js"></script>
-
-  <script type="text/javascript">
-  </script>
+  <script type="text/javascript" src="../dist/pathology-spade.js"></script>
 </head>
 <body>
   <h1 id="qunit-header">QUnit Test Suite</h1>
@@ -20,20 +18,10 @@
   <ol id="qunit-tests"></ol>
   <div id="qunit-fixture">test markup</div>
 
-  <script>
-    document.write(unescape('%3Cscript src="../dist/Pathology-spade.js"%3E%3C/script%3E'));
-  </script>
-
-  <script type="text/javascript" src="test-spade.js"></script>
-
   <script type="text/javascript">
     minispade.require('pathology');
   </script>
 
-  <script>
-    document.write(unescape('%3Cscript src="../dist/Pathology-test.js"%3E%3C/script%3E'));
-  </script>
-
-
+  <script type="text/javascript" src="../dist/pathology-test.js"></script>
 </body>
 </html>

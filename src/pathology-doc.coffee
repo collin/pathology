@@ -30,23 +30,23 @@ jQuery ->
         for name in @klass.classMethods or []
           continue unless method = @klass.classMethod(name)
           continue unless method.definedOn is @klass.path()
-          li id: @klass.path() + "classMethod" + name, ->
+          li id: @klass.path() + ".classMethod." + name, ->
             h1 method.name
             span class:"private", -> "private api" if method.private
             a href:"##{method.definedOn}", ->
               "defined on: " + method.definedOn
-            p method.desc or "No Description Given"
+            pre method.desc or "No Description Given"
 
       h2 "Instance Methods"
       ul ->
         for name in @klass.instanceMethods or []
           continue unless method = @klass.instanceMethod(name)
           continue unless method.definedOn is @klass.path()
-          li id: @klass.path() + "instanceMethod" + name, ->
+          li id: @klass.path() + ".instanceMethod." + name, ->
             h1 method.name
             span class:"private", -> "private api" if method.private
             a href:"##{method.definedOn}", ->
               "defined on: " + method.definedOn
-            p method.desc or "No Description Given"
+            pre method.desc or "No Description Given"
 
     classdocs.append CoffeeKup.render classArticle, klass:klass, hardcode: {each}

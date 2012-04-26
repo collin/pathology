@@ -29,7 +29,7 @@ input "lib" do
       id
     }
 
-    concat "Pathology-spade.js"
+    concat "pathology-spade.js"
   end
 end
 
@@ -46,18 +46,22 @@ input "./src" do
       id
     }
 
-    concat "Pathology-docs-spade.js"
+    concat "pathology-docs-spade.js"
+  end
+
+  match "print-docs.coffee" do
+    coffee_script { "print-docs.js" }
   end
 end
 
 input "./src", "pathology-doc.coffee" do
   coffee_script
-  concat "Pathology-doc.js"
+  concat "pathology-doc.js"
 end
 
 input "./test", "pathology.coffee" do
   coffee_script
-  concat "Pathology-test.js"
+  concat "pathology-test.js"
 end
 
 output "vendor"

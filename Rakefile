@@ -7,6 +7,10 @@ def build
   Rake::Pipeline::Project.new("Assetfile")
 end
 
+def err(*args)
+  STDERR.puts(*args)
+end
+
 desc "Strip trailing whitespace for CoffeeScript files in packages"
 task :strip_whitespace do
   Dir["{src,test}/**/*.coffee"].each do |name|
@@ -19,43 +23,64 @@ end
 
 desc "Compile CoffeeScript"
 task :coffeescript => :clean do
-  puts "Compiling CoffeeScript"
+  err "Compiling CoffeeScript"
   `coffee -co lib/ src/`
-  puts "Done"
+  err "Done"
 end
 
 desc "Build AlphaSimprini"
 task :dist => [:coffeescript, :strip_whitespace] do
-  puts "Building AlphaSimprini..."
+  err "Building AlphaSimprini..."
   build.invoke
-  puts "Done"
+  err "Done"
 end
 
 desc "Clean build artifacts from previous builds"
 task :clean do
-  puts "Cleaning build..."
+  err "Cleaning build..."
   `rm -rf ./lib/*`
   build.clean
-  puts "Done"
+  err "Done"
 end
 
-desc "Run tests with phantomjs"
-task :test => :dist do |t, args|
+task :phantomjs do
   unless system("which phantomjs > /dev/null 2>&1")
     abort "PhantomJS is not installed. Download from http://phantomjs.org"
   end
+end
 
+desc "Create json document object"
+task :jsondoc => [:phantomjs, :dist] do
+  cmd = "phantomjs src/gather-docs.coffee \"file://localhost#{File.dirname(__FILE__)}/src/gather-docs.html\""  
+
+  err "Running tests"
+  err cmd
+  success = `#{cmd}`
+
+  if success
+    err "Built JSON".green
+    FileUtils.safe_unlink "dist/docs.json"
+    File.open("dist/docs.json", "w") {|f| f.write success }
+  else
+    err "Failed".red
+    exit(1)
+  end
+
+end
+
+desc "Run tests with phantomjs"
+task :test => [:phantomjs, :dist] do |t, args|
   cmd = "phantomjs test/qunit/run-qunit.js \"file://localhost#{File.dirname(__FILE__)}/test/index.html\""
 
   # Run the tests
-  puts "Running tests"
-  puts cmd
+  err "Running tests"
+  err cmd
   success = system(cmd)
 
   if success
-    puts "Tests Passed".green
+    err "Tests Passed".green
   else
-    puts "Tests Failed".red
+    err "Tests Failed".red
     exit(1)
   end
 end

@@ -283,6 +283,7 @@ BootstapStatics = extend {}, Kernel,
         toString: => @::[name].toString()
         params: @::[name].doc?.params
         desc: @::[name].doc?.desc
+        private: @::[name].doc?.private
       }
     else if @__super__
       @__super__.constructor.instanceMethod?(name)
@@ -300,6 +301,7 @@ BootstapStatics = extend {}, Kernel,
         toString: => @[name].toString()
         params: @[name].doc?.params
         docString: @[name].doc?.desc
+        private: @[name].doc?.private
       }
 
   inheritableAttr: (name, starter) ->
@@ -480,21 +482,83 @@ Property = Bootstrap.extend ({def}) ->
   def initialize: (@name, @_constructor, @options={}) ->
     @options.name = @name
     @_constructor.writeInheritableValue 'properties', @name, this
+  # @::initialize.doc =
+  #   private: true
+  #   params: [
+  #     ["@name", "String", true]
+  #     ["@_constructor", "Pathology.Object", true]
+  #     ["@options", "Object", false, default: {}]
+  #   ]
+  #   desc: """
+  #     Create a property. Sets self at @_constructor[@name].
+  #     This way all of an objects properties may be reflected upon.
+  #
+  #     ```coffee
+  #       SomeObject = Pathology.Object.extend()
+  #       SomeObject.property("aProperty")
+  #       SomeObject.properties.aProperty
+  #     ```
+  #   """
 
   def couldBe: (test) ->
     return true if test is @name
     false
+  # @::couldBe.doc =
+  #   params: [
+  #     ["test", "*", true]
+  #   ]
+  #   desc: """
+  #     Used by other libraries to determine which properties could provide
+  #     a property for the test. see: [Pathology.Object.instanceMethods.propertiesThatCouldBe]
+  #   """
 
   def instance: (object) -> @constructor.Instance.new(object, @options)
+  # @::instance.doc =
+  #   private: true
+  #   params: [
+  #     ["object", "Pathology.Object", true]
+  #     ["@options", "Object", false, default: {}]
+  #   ]
+  #   desc: """
+  #
+  #   """
 
 Property.Instance = Bootstrap.extend ({def}) ->
   def inspect: ->
     " #{@options.name}: #{@get?()} @object: #{@object}"
+  # @::inspect.doc =
+  #   private: true
+  #   desc: """
+  #     A friendly string to identify the object when toString is called.
+  #   """
+
 
   def initialize: (@object, @options={}) ->
     throw new Error "@object MUST NOT be null: was: #{@object}" unless @object
+  # @::initialize.doc =
+  #   private: true
+  #   params: [
+  #     ["@object", "Pathology.Object", true]
+  #     ["@options", "Object", false, default: {}]
+  #   ]
+  #   desc: """
+  #     Creates an instance of a property on an instance of an object.
+  #   """
+
   def get: -> @value
+  # @::get.doc =
+  #   desc: """
+  #     Gets the @value of the property.
+  #   """
+
   def set: (value) -> @value = value
+  # @::set.doc =
+  #   params: [
+  #     ["value", "*", true]
+  #   ]
+  #   desc: """
+  #     Sets the @value of the property.
+  #   """
 
 
 HASH_KEY = "_hash"
@@ -514,6 +578,11 @@ Map = Bootstrap.extend ({def}) ->
   #     the `key` may be ANY object. If a default has been specified
   #     and no object exists at that key, a default value will be returned.
   #
+  #     ```coffee
+  #       map = Pathology.Map.new()
+  #       key = {}
+  #       map.get(key)
+  #     ```
   #   """
 
   def set: (key, value) ->
@@ -521,14 +590,40 @@ Map = Bootstrap.extend ({def}) ->
 
     @keyMap[hash] = key
     @map[@hash(key)] = value ? @default()
+  # @::set.doc =
+  #   params: [
+  #     ["key", "*", true]
+  #     ["value", "*", true]
+  #   ]
+  #   desc: """
+  #     Set an object on the map. Unlike a regular JS object,
+  #     the `key` may be ANY object.
+  #
+  #     ```coffee
+  #       map = Pathology.Map.new()
+  #       key = {}
+  #       map.set(key, "value")
+  #     ```
+  #   """
 
   def each: (fn) ->
     for key, value of @map
       hash = @hash(key)
       fn @keyMap[hash], @map[hash]
+  # @::each.doc =
+  #   params: [
+  #     ["fn", "Function", true]
+  #   ]
+  #   desc: """
+  #     Because Pathology.Map allows for any object as a key, regular
+  #     enumeration will not work. Use `each` instead.
+  #
+  #     ```coffee
+  #       map = Pathology.Map.new()
+  #       map.each (key, value) -> console.log key, "is", value
+  #     '''
+  #   """
 
-  # WARNING: calling with a map using non-string keys will NOT work as expected.
-  # WILL throw an error.
   def toObject: ->
     object = new Object()
     @each (key, value) ->
@@ -538,12 +633,35 @@ Map = Bootstrap.extend ({def}) ->
         object[key] = value
 
     return object
+  # @::toObject.doc =
+  #   desc: """
+  #     WARNING: Calling with a map using non-string keys will NOT work as expected.
+  #              It WILL throw an error.
+  #
+  #     ```coffee
+  #       map = Pathlogy.Map.new()
+  #       map.set("key", "value")
+  #       map.toObject()
+  #     ```
+  #   """
 
   def del: (key) ->
     hash = @hash(key)
     @keyMap[hash] = undefined
     @map[hash] = undefined
-
+  # @::del.doc =
+  #   params: [
+  #     ["key", "*", true]
+  #   ]
+  #   desc: """
+  #     Removes a key from the Map.
+  #
+  #     ```coffee
+  #       map = Pathology.Map.new()
+  #       key = {}
+  #       map.del key
+  #     '''
+  #   """
 
   def hash: (key) ->
     return "undefined" if key is undefined
@@ -561,24 +679,72 @@ Map = Bootstrap.extend ({def}) ->
           writeMeta key, data
 
     hash
-
+  # @::hash.doc =
+  #   private: true
+  #   params: [
+  #     ["key", "*", true]
+  #   ]
+  #   desc: """
+  #     Creates a unique key for objects to be used in the map.
+  #     This is neccessary so we can use arbitrary objects as keys in the object.
+  #   """
 
 # TODO: implement Map on an Array to allow for set operations.
 Set = Map.extend ({def}) ->
   def add: (item) ->
     @set(item, item)
+  # @::add.doc =
+  #   params: [
+  #     ["item", "*", true]
+  #   ]
+  #   desc: """
+  #     Adds an item to a set. Duplicate items will be not be in the set twice.
+  #   """
 
   def remove: (item) ->
     @del(item)
+  # @::remove.doc =
+  #   params: [
+  #     ["item", "*", true]
+  #   ]
+  #   desc: """
+  #     Removes an item from the set.
+  #   """
 
   def include: (item) ->
     @get(item) isnt undefined
+  # @::include.doc =
+  #   params: [
+  #     ["item", "*", true]
+  #   ]
+  #   desc: """
+  #     Tests if the set includes an item.
+  #   """
 
   def each: (fn) ->
     fn(value) for key, value of @map
+  # @::each.doc =
+  #   params: [
+  #     ["fn", "Function", true]
+  #   ]
+  #   desc: """
+  #     Because Set extends Map we have to use this `each` to iterate
+  #     over the items in the set.
+  #
+  #     ```coffee
+  #       set = Pathology.Set.new()
+  #       set.each (item) -> console.log item
+  #     ```
+  #   """
+
 
   def empty: ->
     @map = {}
+    @keyMap = {}
+  # @::empty.doc =
+  #   desc: """
+  #     Removes all items from the Set.
+  #   """
 
 
 writeMeta Namespace, _name: "Namespace"
