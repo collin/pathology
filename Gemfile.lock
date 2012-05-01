@@ -63,7 +63,7 @@ PLATFORMS
 DEPENDENCIES
   coffee-script
   colored
-  github_uploader
+  github_uploader (~> 0.1.0)
   html_package (~> 0.0.3)
   rake-pipeline!
   rake-pipeline-web-filters!
