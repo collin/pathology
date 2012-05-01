@@ -106,7 +106,7 @@ end
 
 desc "tag/upload release"
 task :release, [:version] => :test do |t, args|
-  unless args[:version] and args[:version].match[/^[\d]{3}$/]
+  unless args[:version] and args[:version].match(/^[\d]+\.[\d]+\.[\d].*$/)
     raise "SPECIFY A VERSION curent version: #{PATHOLOGY_VERSION}"
   end
   File.open("./version.rb", "w") do |f| 
@@ -117,5 +117,6 @@ task :release, [:version] => :test do |t, args|
   system "git commit -m 'bumped version to #{args[:version]}'"
   system "git tag #{args[:version]}"
   system "git push origin master"
+  system "git push #{args[:version]}"
   Rake::Task[:upload].invoke
 end
