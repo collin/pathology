@@ -59,7 +59,7 @@ end
 
 desc "Create json document object"
 task :jsondoc => [:phantomjs, :dist] do
-  cmd = "phantomjs src/gather-docs.coffee \"file://localhost#{File.dirname(__FILE__)}/src/gather-docs.html\""  
+  cmd = %|phantomjs src/gather-docs.coffee "file://localhost#{File.dirname(__FILE__)}/src/gather-docs.html"|
 
   err "Running tests"
   err cmd
@@ -82,16 +82,23 @@ task :phantomjs do
   end
 end
 
-desc "Run tests with phantomjs"
-task :test => [:phantomjs, :dist, :vendor] do |t, args|
-  cmd = "phantomjs test/qunit/run-qunit.js \"file://localhost#{File.dirname(__FILE__)}/test/index.html\""
+def exec_test
+  cmd = %|phantomjs ./test/qunit/run-qunit.js "file://localhost#{File.dirname(__FILE__)}/test/index.html"|
 
   # Run the tests
   err "Running tests"
   err cmd
-  success = system(cmd)
+  success = system(cmd)  
+end
 
-  if success
+task :exec_test do
+  exec_test
+end
+
+desc "Run tests with phantomjs"
+task :test => [:phantomjs, :dist, :vendor] do |t, args|
+
+  if exec_test
     err "Tests Passed".green
   else
     err "Tests Failed".red
