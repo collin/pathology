@@ -39,7 +39,7 @@ GEM
       github_api (= 0.4.11)
       rest-client
     hashie (1.2.0)
-    html_package (0.0.1)
+    html_package (0.0.3)
     mime-types (1.18)
     multi_json (1.3.4)
     multipart-post (1.1.5)
@@ -64,7 +64,7 @@ DEPENDENCIES
   coffee-script
   colored
   github_uploader
-  html_package
+  html_package (~> 0.0.3)
   rake-pipeline!
   rake-pipeline-web-filters!
   tilt

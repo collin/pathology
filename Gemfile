@@ -7,5 +7,5 @@ gem "colored"
 gem "uglifier", "~> 1.0.3"
 gem "coffee-script"
 gem "github_uploader", require: false
-gem "html_package", "~> 0.0.0"
+gem "html_package", "~> 0.0.3"
 gem "tilt"
