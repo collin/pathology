@@ -1,7 +1,5 @@
 require "rake-pipeline-web-filters"
 require "json"
-# require "uglifier"
-
 
 class PathologyDocumentFilter < Rake::Pipeline::Filter
   #  NOW WE HAVE TWO PROBLEMS
@@ -21,7 +19,13 @@ end
 
 output "dist"
 input "lib" do
-  match "**/*.js" do
+  match "pathology.js" do
+    concat "pathology.js"
+  end
+end
+
+input "lib" do
+  match "pathology.js" do
     minispade rewrite_requires: true, string: true, module_id_generator: proc { |input|
      id = input.path.dup
       id.sub!('/lib/', '/')
@@ -29,25 +33,25 @@ input "lib" do
       id
     }
 
-    concat "pathology-#{VERSION}-spade.js"
+    concat "pathology-spade.js"
   end
 end
 
 input "./src" do
-  match "pathology.coffee" do
-    filter PathologyDocumentFilter
-    coffee_script
+  # match "pathology.coffee" do
+  #   filter PathologyDocumentFilter
+  #   coffee_script
 
-    minispade rewrite_requires: true, string: true, module_id_generator: proc { |input|
-     id = input.path.dup
-      id.sub!('/lib/', '/')
-      id.sub!(/\.js$/, '')
-      id.sub!(/\/main$/, '')
-      id
-    }
+  #   minispade rewrite_requires: true, string: true, module_id_generator: proc { |input|
+  #    id = input.path.dup
+  #     id.sub!('/lib/', '/')
+  #     id.sub!(/\.js$/, '')
+  #     id.sub!(/\/main$/, '')
+  #     id
+  #   }
 
-    concat "pathology-docs-#{VERSION}-spade.js"
-  end
+  #   concat "pathology-docs-spade.js"
+  # end
 
   match "print-docs.coffee" do
     coffee_script { "print-docs.js" }
@@ -62,4 +66,13 @@ end
 input "./test", "pathology.coffee" do
   coffee_script
   concat "pathology-test.js"
+end
+
+output "dist"
+input "./", "pathology.erb" do
+  require "./version"
+  # f = Rake::Pipeline::Web::Filters::TiltFilter.new(version: PATHOLOGY_VERSION)
+  filter(Rake::Pipeline::Web::Filters::TiltFilter, {}, Object) do |input|
+    "pathology.html"
+  end
 end

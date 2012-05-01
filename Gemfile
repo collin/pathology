@@ -6,3 +6,6 @@ gem "rake-pipeline-web-filters", :git => "https://github.com/wycats/rake-pipelin
 gem "colored"
 gem "uglifier", "~> 1.0.3"
 gem "coffee-script"
+gem "github_uploader", require: false
+gem "html_package"
+gem "tilt"

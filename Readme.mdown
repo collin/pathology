@@ -3,8 +3,7 @@
 
 ### The scientific study of the nature of ~~disease~~ JavaScript and its causes, processes, development, and consequences.
 
-A ~~disturbing~~ delightful truth about CoffeeScript is that it lets you completely obliterate JavaScript and create your own "language" out of the pieces without ending up with a syntax that makes you claw your eyes out.
-
+ea
 ```coffee
 puts = console.log
 ```

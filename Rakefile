@@ -1,7 +1,10 @@
-abort "Use Ruby 1.9 to build AlphaSimprini" unless RUBY_VERSION["1.9"]
+abort "Use Ruby 1.9 to build Pathology" unless RUBY_VERSION["1.9"]
+
+require "./version"
 
 require 'rake-pipeline'
 require 'colored'
+require 'github_uploader'
 
 def build
   Rake::Pipeline::Project.new("Assetfile")
@@ -28,9 +31,9 @@ task :coffeescript => :clean do
   err "Done"
 end
 
-desc "Build AlphaSimprini"
+desc "Build Pathology"
 task :dist => [:coffeescript, :strip_whitespace] do
-  err "Building AlphaSimprini..."
+  err "Building Pathology..."
   build.invoke
   err "Done"
 end
@@ -41,6 +44,17 @@ task :clean do
   `rm -rf ./lib/*`
   build.clean
   err "Done"
+end
+
+desc "upload versions"
+task :upload => :test do
+  uploader = GithubUploader.setup_uploader
+  GithubUploader.upload_file uploader, "pathology-#{PATHOLOGY_VERSION}.js", "Pathology #{PATHOLOGY_VERSION}", "dist/pathology.js"
+  GithubUploader.upload_file uploader, "pathology-#{PATHOLOGY_VERSION}-spade.js", "Pathology #{PATHOLOGY_VERSION} (minispade)", "dist/pathology-spade.js"
+  GithubUploader.upload_file uploader, "pathology-#{PATHOLOGY_VERSION}.html", "Pathology #{PATHOLOGY_VERSION} (html_package)", "dist/pathology.html"
+
+  GithubUploader.upload_file uploader, 'pathology-latest.js', "Current Pathology", "dist/pathology.js"
+  GithubUploader.upload_file uploader, 'pathology-latest-spade.js', "Current Pathology (minispade)", "dist/pathology-spade.js"
 end
 
 desc "Create json document object"
@@ -69,7 +83,7 @@ task :phantomjs do
 end
 
 desc "Run tests with phantomjs"
-task :test => [:phantomjs, :dist] do |t, args|
+task :test => [:phantomjs, :dist, :vendor] do |t, args|
   cmd = "phantomjs test/qunit/run-qunit.js \"file://localhost#{File.dirname(__FILE__)}/test/index.html\""
 
   # Run the tests
@@ -83,4 +97,9 @@ task :test => [:phantomjs, :dist] do |t, args|
     err "Tests Failed".red
     exit(1)
   end
+end
+
+desc "Install development dependencies with hip"
+task :vendor => :dist do
+  system "hip install --file=dist/pathology.html --out=./vendor --dev"
 end

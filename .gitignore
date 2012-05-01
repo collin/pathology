@@ -1,0 +1,6 @@
+.github-upload-token
+vendor/
+tmp/
+node_modules/
+dist/
+lib/
