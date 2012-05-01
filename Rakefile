@@ -103,3 +103,19 @@ desc "Install development dependencies with hip"
 task :vendor => :dist do
   system "hip install --file=dist/pathology.html --out=./vendor --dev"
 end
+
+desc "tag/upload release"
+task :release, [:version] => :test do |t, args|
+  unless args[:version] and args[:version].match[/^[\d]{3}$/]
+    raise "SPECIFY A VERSION curent version: #{PATHOLOGY_VERSION}"
+  end
+  File.open("./version.rb", "w") do |f| 
+    f.write %|PATHOLOGY_VERSION = "#{args[:version]}"|
+  end
+
+  system "git add version.rb"
+  system "git commit -m 'bumped version to #{args[:version]}'"
+  system "git tag #{args[:version]}"
+  system "git push origin master"
+  Rake::Task[:upload].invoke
+end
