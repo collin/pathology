@@ -43,12 +43,6 @@ task :clean do
   err "Done"
 end
 
-task :phantomjs do
-  unless system("which phantomjs > /dev/null 2>&1")
-    abort "PhantomJS is not installed. Download from http://phantomjs.org"
-  end
-end
-
 desc "Create json document object"
 task :jsondoc => [:phantomjs, :dist] do
   cmd = "phantomjs src/gather-docs.coffee \"file://localhost#{File.dirname(__FILE__)}/src/gather-docs.html\""  
@@ -66,6 +60,12 @@ task :jsondoc => [:phantomjs, :dist] do
     exit(1)
   end
 
+end
+
+task :phantomjs do
+  unless system("which phantomjs > /dev/null 2>&1")
+    abort "PhantomJS is not installed. Download from http://phantomjs.org"
+  end
 end
 
 desc "Run tests with phantomjs"

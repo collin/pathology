@@ -29,7 +29,7 @@ input "lib" do
       id
     }
 
-    concat "pathology-spade.js"
+    concat "pathology-#{VERSION}-spade.js"
   end
 end
 
@@ -46,7 +46,7 @@ input "./src" do
       id
     }
 
-    concat "pathology-docs-spade.js"
+    concat "pathology-docs-#{VERSION}-spade.js"
   end
 
   match "print-docs.coffee" do
@@ -62,21 +62,4 @@ end
 input "./test", "pathology.coffee" do
   coffee_script
   concat "pathology-test.js"
-end
-
-output "vendor"
-input "vendor", "coffeekup.coffee" do
-  coffee_script
-  minispade module_id_generator: proc{ "coffeekup" }
-  concat "coffeekup-spade.js"
-end
-
-input "vendor", "jquery.js" do
-  minispade module_id_generator: proc{ "jquery" }
-  concat "jquery-spade.js"
-end
-  
-input "vendor", "underscore.js" do
-  minispade module_id_generator: proc{ "underscore" }
-  concat "underscore-spade.js"
 end
