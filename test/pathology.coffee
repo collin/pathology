@@ -1,20 +1,23 @@
 {extend} = _
-NS = Pathology.Namespace.new("NS")
+window.NS = Pathology.Namespace.new("NS")
 O = Pathology.Object
 M = Pathology.Module
-It = NS.It = Pathology.Object.extend ({def}) ->
+class NS.It
   @Static = "Electricity"
 
   def initialize: (@property) ->
 
   def someProp: "someValue"
+It = NS.It
 
-Child = NS.It.Child = It.extend()
-Grandchild = NS.It.Child.Grandchild = Child.extend()
+class NS.It.Child < It
+Child = NS.It.Child
+class NS.It.Child.Grandchild < Child
+Grandchild = NS.It.Child.Grandchild
 
 
-NS.Mixable = Pathology.Object.extend()
-NS.Mixer = M.extend ({def, defs}) ->
+class NS.Mixable
+module NS.Mixer
   defs included: ->
     @mixer = "Powerful Stuff"
 
@@ -168,13 +171,14 @@ test "most specific module provides the slot", ->
   equal "value3", Extended.new().key
   equal "value2", Downstream.new().key
 
+class NS.Delegating
+  delegate "field", to: "foo"
+  delegate "a", "b", to: "bar"
+
+  def initialize: (attrs) -> extend this, attrs
+
 module "Pathology.Object.delegate",
   setup: ->
-    NS.Delegating = Pathology.Object.extend ({def, delegate}) ->
-      delegate "field", to: "foo"
-      delegate "a", "b", to: "bar"
-
-      def initialize: (attrs) -> extend this, attrs
 
     @subject = NS.Delegating.new
       foo: field: "FIELD"
@@ -194,61 +198,72 @@ test "delegates to functions", ->
 
 module "Pathology.Object.super (to parent class)"
 test "method defined on parent first", ->
-  Parent = O.extend ({def}) ->
+  module X
+  X = @X
+  X = @X
+  class X.Parent
     def method: -> "whiz"
 
-  Child = Parent.extend ({def}) ->
+  class X.Child < X.Parent
     def method: -> @_super() + " bang!"
 
-  equal "whiz bang!", Child.new().method()
+  equal "whiz bang!", X.Child.new().method()
 
 
 
 test "method defined on parent after", ->
-  Parent = O.extend()
+  module X
+  X = @X
+  class X.Parent
 
-  Child = Parent.extend ({def}) ->
+  class X.Child < X.Parent
     def method: -> @_super() + " bang!"
 
-  Parent.def method: -> "whiz"
+  X.Parent.def method: -> "whiz"
 
-  equal "whiz bang!", Child.new().method()
+  equal "whiz bang!", X.Child.new().method()
 
 
 
 module "Pathology.Object.super (to parents parent class)"
 test "method defined on parent first", ->
-  Parent = O.extend ({def}) ->
+  module X
+  X = @X
+  X = @X
+  class X.Parent
     def method: -> "parent"
 
-  Child = Parent.extend()
+  class X.Child < X.Parent
 
-  Grandchild = Child.extend ({def}) ->
+  class X.Grandchild < X.Child
     def method: -> @_super() + ", grandchild"
 
-  equal "parent, grandchild", Grandchild.new().method()
+  equal "parent, grandchild", X.Grandchild.new().method()
 
 
 
 test "method defined on grandchild first", ->
-  Parent = O.extend()
-  Child = Parent.extend()
-  Grandchild = Child.extend ({def}) ->
+  module X
+  X = @X
+  class X.Parent
+  class X.Child < X.Parent
+  class X.Grandchild < X.Child
     def method: -> @_super() + ", grandchild"
 
-  Parent.def method: -> "parent"
+  X.Parent.def method: -> "parent"
 
-  equal "parent, grandchild", Grandchild.new().method()
+  equal "parent, grandchild", X.Grandchild.new().method()
 
 
 test "method defined on child last", ->
-  X = Pathology.Namespace.new("X")
-  X.Parent = O.extend ({def}) ->
+  module X
+  X = @X
+  class X.Parent
     def method: -> "parent"
 
-  X.Child = X.Parent.extend()
+  class X.Child < X.Parent
 
-  X.Grandchild = X.Child.extend ({def}) ->
+  class X.Grandchild < X.Child
     def method: -> @_super() + ", grandchild"
 
   X.Child.def method: -> @_super() + ", child"
@@ -257,10 +272,11 @@ test "method defined on child last", ->
 
 
 test "method defined on child first, parent second", ->
-  X = Pathology.Namespace.new("X")
-  X.Parent = O.extend()
-  X.Child = X.Parent.extend()
-  X.Grandchild = X.Child.extend()
+  module X
+  X = @X
+  class X.Parent
+  class X.Child < X.Parent
+  class X.Grandchild < X.Child
 
   X.Child.def method: -> @_super() + ", child"
   X.Parent.def method: -> "parent"
@@ -270,10 +286,11 @@ test "method defined on child first, parent second", ->
 
 
 test "method defined on child first, parent last", ->
-  X = Pathology.Namespace.new("X")
-  X.Parent = O.extend()
-  X.Child = X.Parent.extend()
-  X.Grandchild = X.Child.extend()
+  module X
+  X = @X
+  class X.Parent
+  class X.Child < X.Parent
+  class X.Grandchild < X.Child
 
   X.Child.def method: -> @_super() + ", child"
   X.Grandchild.def method: -> @_super() + ", grandchild"
@@ -311,88 +328,109 @@ test "object toString has constructor and objectid", ->
 
 
 test "constructor toString has constructor path", ->
-  equal "Pathology.Namespace", Pathology.Namespace.toString()
   equal "NS.It.Child.Grandchild", NS.It.Child.Grandchild.toString()
+  equal "Pathology.Namespace", Pathology.Namespace.toString()
 
 
 module "Pathology.Object.writeInheritableAttrs"
 test "children inherit on extension", ->
-  Parent = O.extend()
-  Parent.writeInheritableAttr("key", "value")
-  Child = Parent.extend()
-  equal "value", Child.key
+  module X
+  X = @X
+  class X.Parent
+  X.Parent.writeInheritableAttr("key", "value")
+  class X.Child < X.Parent
+  equal "value", X.Child.key
 
 
 test "children inherit after extension", ->
-  Parent = O.extend()
-  Child = Parent.extend()
-  Parent.writeInheritableAttr("key", "value")
-  equal "value", Child.key
-
+  module X
+  X = @X
+  class X.Parent
+  class X.Child < X.Parent
+  X.Parent.writeInheritableAttr("key", "value")
+  equal "value", X.Child.key
 
 test "change in parent filters to children", ->
-  Parent = O.extend()
-  Parent.writeInheritableAttr("key", "value")
-  Child = Parent.extend()
-  Parent.writeInheritableAttr("key2", "value")
-  equal "value", Child.key
+  module X
+  X = @X
+  class X.Parent
+  X.Parent.writeInheritableAttr("key", "value")
+  class X.Child < X.Parent
+  X.Parent.writeInheritableAttr("key2", "value")
+  equal "value", X.Child.key
 
 
 test "parent doesn't inherit from child", ->
-  Parent = O.extend()
-  Child = Parent.extend()
-  Child.writeInheritableAttr("key", "value")
-  equal undefined, Parent.key
+  module X
+  X = @X
+  class X.Parent
+  class X.Child < X.Parent
+  X.Child.writeInheritableAttr("key", "value")
+  equal undefined, X.Parent.key
 
 
 test "change in child doesn't filter to parent", ->
-  Parent = O.extend()
-  Child = Parent.extend()
-  Parent.writeInheritableAttr("key", "value")
-  Child.writeInheritableAttr("key2", "value")
-  equal undefined, Parent.key2
+  module X
+  X = @X
+  class X.Parent
+  class X.Child < X.Parent
+  X.Parent.writeInheritableAttr("key", "value")
+  X.Child.writeInheritableAttr("key2", "value")
+  equal undefined, X.Parent.key2
 
 
 module "Pathology.Object.writeInheritableValue"
 test "children inherit on extension", ->
-  Parent = O.extend()
-  Parent.writeInheritableValue("family", "key", "value")
-  Child = Parent.extend()
-  equal "value", Child.family.key
+  module X
+  X = @X
+  class X.Parent
+  X.Parent.writeInheritableValue("family", "key", "value")
+  class X.Child < X.Parent
+  equal "value", X.Child.family.key
 
 
 test "children inhert after extension", ->
-  Parent = O.extend()
-  Child = Parent.extend()
-  Parent.writeInheritableValue("family", "key", "value")
-  equal "value", Child.family.key
+  module X
+  X = @X
+  class X.Parent
+  class X.Child < X.Parent
+  X.Parent.writeInheritableValue("family", "key", "value")
+  equal "value", X.Child.family.key
 
 
 test "change in parent filters to children", ->
-  Parent = O.extend()
-  Parent.writeInheritableValue("ns", "key", "value")
-  Child = Parent.extend()
-  Parent.writeInheritableValue("ns", "key2", "value2")
-  equal "value2", Child.ns.key2
+  module X
+  X = @X
+  class X.Parent
+  X.Parent.writeInheritableValue("ns", "key", "value")
+  class X.Child < X.Parent
+  X.Parent.writeInheritableValue("ns", "key2", "value2")
+  equal "value2", X.Child.ns.key2
 
 
 test "parent doesn't inherit from child", ->
-  Parent = O.extend()
-  Child = Parent.extend()
-  Child.writeInheritableValue("ns", "key", "value")
-  equal undefined, Parent.ns
+  module X
+  X = @X
+  class X.Parent
+  class X.Child < X.Parent
+  X.Child.writeInheritableValue("ns", "key", "value")
+  equal undefined, X.Parent.ns
 
 
 test "change in child doesn't filter to parent", ->
-  Parent = O.extend()
-  Child = Parent.extend()
-  Parent.writeInheritableValue("world", "key", "value")
-  Child.writeInheritableValue("world", "key2", "value")
-  equal undefined, Parent.world.key2
+  module X
+  X = @X
+  class X.Parent
+  class X.Child < X.Parent
+  X.Parent.writeInheritableValue("world", "key", "value")
+  X.Child.writeInheritableValue("world", "key2", "value")
+  equal undefined, X.Parent.world.key2
 
 
-NS.Props = O.extend()
-NS.Props.property('aProperty')
+class NS.Props
+  @property('aProperty')
+  @property 'customGetter', get: -> "got custom"
+  @property 'customSetter', set: (value) -> @value = value.toUpperCase()
 
 module "Property"
 test "reflection", ->
@@ -412,6 +450,15 @@ test "basic property has a reader/writer", ->
   o =  NS.Props.new()
   o.aProperty.set("value")
   equal "value", o.aProperty.get()
+
+test "custom getter", ->
+  o = NS.Props.new()
+  equal o.customGetter.get(), "got custom"
+
+test "custom setter", ->
+  o = NS.Props.new()
+  o.customSetter.set("custom")
+  equal o.customSetter.get(), "CUSTOM"
 
 module "Pathology.Object.propertiesThatCouldBe"
 test "returns a list of properties that couldBe", ->
@@ -438,41 +485,51 @@ test "reads a property through properties", ->
 
 module "Pathology.Object.pushInheritableItem"
 test "children inherit on extension", ->
-  Parent = O.extend()
-  Parent.pushInheritableItem("list", "value")
-  Child = Parent.extend()
-  deepEqual ["value"], Child.list
+  module X
+  X = @X
+  class X.Parent
+  X.Parent.pushInheritableItem("list", "value")
+  class X.Child < X.Parent
+  deepEqual ["value"], X.Child.list
 
 
 test "children inhert after extension", ->
-  Parent = O.extend()
-  Child = Parent.extend()
-  Parent.pushInheritableItem("list", "value")
-  deepEqual ["value"], Child.list
+  module X
+  X = @X
+  class X.Parent
+  class X.Child < X.Parent
+  X.Parent.pushInheritableItem("list", "value")
+  deepEqual ["value"], X.Child.list
 
 
 test "change in parent filters to children", ->
-  Parent = O.extend()
-  Parent.pushInheritableItem("list", "value")
-  Child = Parent.extend()
-  Parent.pushInheritableItem("list", "value2")
-  deepEqual ["value", "value2"], Child.list
-  deepEqual ["value", "value2"], Parent.list
+  module X
+  X = @X
+  class X.Parent
+  X.Parent.pushInheritableItem("list", "value")
+  class X.Child < X.Parent
+  X.Parent.pushInheritableItem("list", "value2")
+  deepEqual ["value", "value2"], X.Child.list
+  deepEqual ["value", "value2"], X.Parent.list
 
 
 test "parent doesn't inherit from child", ->
-  Parent = O.extend()
-  Child = Parent.extend()
-  Child.pushInheritableItem("list", "value")
-  equal undefined, Parent.list
+  module X
+  X = @X
+  class X.Parent
+  class X.Child < X.Parent
+  X.Child.pushInheritableItem("list", "value")
+  equal undefined, X.Parent.list
 
 
 test "change in child doesn't filter to parent", ->
-  Parent = O.extend()
-  Parent.pushInheritableItem("list", "value")
-  Child = Parent.extend()
-  Child.pushInheritableItem("list", "value2")
-  deepEqual ["value"], Parent.list
+  module X
+  X = @X
+  class X.Parent
+  X.Parent.pushInheritableItem("list", "value")
+  class X.Child < X.Parent
+  X.Child.pushInheritableItem("list", "value2")
+  deepEqual ["value"], X.Parent.list
 
 
 module "Pathology.Namespace"
@@ -489,19 +546,20 @@ test "constructor paths nest deeply", ->
 
 
 test "nested namespaces nest paths deeply, and don't require a name", ->
-  NS.NS2 = Pathology.Namespace.new()
+  module NS.NS2
   equal "NS2", NS.NS2._name()
   equal "NS.NS2", NS.NS2.path()
 
 
 test "namespaces nested in constructors get their paths", ->
-  NS.Thingy = Pathology.Object.extend()
-  NS.Thingy.NS3 = Pathology.Namespace.new()
-  NS.Thingy.NS3.Fourth = Pathology.Object.extend()
-  NS.Thingy.NS3._name()
-  equal "NS3", NS.Thingy.NS3._name()
-  equal "NS.Thingy.NS3", NS.Thingy.NS3.path()
-  equal "NS.Thingy.NS3.Fourth", NS.Thingy.NS3.Fourth.path()
+  module X
+  X = @X
+  class X.Thingy
+  module X.Thingy.NS3
+  class X.Thingy.NS3.Fourth
+  equal "NS3", X.Thingy.NS3._name()
+  equal "X.Thingy.NS3", X.Thingy.NS3.path()
+  equal "X.Thingy.NS3.Fourth", X.Thingy.NS3.Fourth.path()
   test
 
 
@@ -649,115 +707,127 @@ test "static is mixed into constructor", ->
 test "instance is mixed into constructor prototype", ->
   equal "INSTANCEVALUE", NS.Mixable.new().instanceKey
 
+test "instance methods are shown as defined on the mixin", ->
+  method = NS.Mixable.instanceMethod('instanceKey')
+  equal method.definedOn, "NS.Mixer"
+
+test "overridden instance methods are shown as defined on the class", ->
+  NS.Mixable2 = NS.Mixable.extend ({delegate, include, def, defs}) ->
+    def instanceKey: "overridden"
+
+  method = NS.Mixable2.instanceMethod('instanceKey')
+  equal method.definedOn, "NS.Mixable2"
 
 module "Pathology.Module.super"
 test "including a module in the middle of an existing super chain", ->
-  Parent = O.extend ({def}) ->
+  module X
+  X = @X
+  class X.Parent
     def method: -> "parent"
 
-  Child = Parent.extend ({def}) ->
+  class X.Child < X.Parent
     def method: -> @_super() + ", child"
 
-  Grandchild = Child.extend ({def}) ->
+  class X.Grandchild < X.Child
     def method: -> @_super() + ", grandchild"
 
-  Uncle = M.extend ({def}) ->
+  module X.Uncle
     def method: -> @_super() + ", uncle"
 
-  Child.include Uncle
+  X.Child.include X.Uncle
 
-  equal "parent, uncle, child, grandchild", Grandchild.new().method()
+  equal "parent, uncle, child, grandchild", X.Grandchild.new().method()
 
 
 
 test "including two modules in the middle of an existing super chain", ->
-  Parent = O.extend ({def}) ->
+  module X
+  X = @X
+  class X.Parent
     def method: -> "parent"
 
-  Child = Parent.extend ({def}) ->
+  class X.Child < X.Parent
     def method: -> @_super() + ", child"
 
-  Grandchild = Child.extend ({def}) ->
+  class X.GrandChild < X.Child
     def method: -> @_super() + ", grandchild"
 
-  Uncle = M.extend ({def}) ->
+  module X.Uncle
     def method: -> @_super() + ", uncle"
 
-  Aunt = M.extend ({def}) ->
+  module X.Aunt
     def method: -> @_super() + ", aunt"
 
-  Child.include Uncle
-  Child.include Aunt
+  X.Child.include X.Uncle
+  X.Child.include X.Aunt
 
-  equal "parent, uncle, aunt, child, grandchild", Grandchild.new().method()
-
+  console.log X.Grandchild
+  equal "parent, uncle, aunt, child, grandchild", X.GrandChild.new().method()
 
 
 test "extend a class hierarchy that already has modules included", ->
   X = Pathology.Namespace.new("X")
-  Parent = X.Parent = O.extend ({def}) ->
+  class X.Parent
     def method: -> "parent"
 
-  Child = X.Child = Parent.extend ({def}) ->
+  class X.Child < X.Parent
     def method: -> @_super() + ", child"
 
-  Grandchild = X.Grandchild = Child.extend ({def}) ->
+  class X.Grandchild < X.Child
     def method: -> @_super() + ", grandchild"
 
-  Uncle = X.Uncle  = M.extend ({def}) ->
+  module X.Uncle
     def method: -> @_super() + ", uncle"
 
-  Aunt = X.Aunt = M.extend ({def}) ->
+  module X.Aunt
     def method: -> @_super() + ", aunt"
 
-  Child.include Uncle
-  Child.include Aunt
+  X.Child.include X.Uncle
+  X.Child.include X.Aunt
 
-  GreatGrandchild = X.GreatGrandchild = Grandchild.extend ({def}) ->
+  class X.GreatGrandchild < X.Grandchild
     def method: -> @_super() + ", greatgrandchild"
 
-  equal "parent, uncle, aunt, child, grandchild, greatgrandchild", GreatGrandchild.new().method()
+  equal "parent, uncle, aunt, child, grandchild, greatgrandchild", X.GreatGrandchild.new().method()
 
 
 
 test "def method after including module", ->
-  Parent = O.extend ({def}) ->
+  module X
+  X = @X
+  class X.Parent
     def method: -> "parent"
 
-  Child = Parent.extend()
+  class X.Child < X.Parent
 
-  Grandchild = Child.extend ({def}) ->
+  class X.GrandChild < X.Child
     def method: -> @_super() + ", grandchild"
 
-  Uncle = M.extend ({def}) ->
+  module X.Uncle
     def method: -> @_super() + ", uncle"
 
-  Child.include Uncle
-  Child.def method: -> @_super() + ", child"
+  X.Child.include X.Uncle
+  X.Child.def method: -> @_super() + ", child"
 
-  equal "parent, uncle, child, grandchild", Grandchild.new().method()
-
-
-
+  equal "parent, uncle, child, grandchild", X.GrandChild.new().method()
 
 test "include module in class after creating object", ->
-  Parent = O.extend ({def}) ->
+  module X
+  X = @X
+  class X.Parent
     def method: -> "parent"
 
-  Child = Parent.extend()
+  class X.Child < X.Parent
 
-  Grandchild = Child.extend ({def}) ->
+  class X.GrandChild < X.Child
     def method: -> @_super() + ", grandchild"
 
-  grandchild = Grandchild.new()
+  grandchild = X.GrandChild.new()
 
-  Uncle = M.extend ({def}) ->
+  module X.Uncle
     def method: -> @_super() + ", uncle"
 
-  Child.include Uncle
-  Child.def method: -> @_super() + ", child"
+  X.Child.include X.Uncle
+  X.Child.def method: -> @_super() + ", child"
 
   equal "parent, uncle, child, grandchild", grandchild.method()
-
-
-

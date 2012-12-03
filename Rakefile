@@ -5,6 +5,7 @@ require "./version"
 require 'rake-pipeline'
 require 'colored'
 require 'github_uploader'
+require "#{File.dirname(__FILE__)}/tasks/doc"
 
 def build
   Rake::Pipeline::Project.new("Assetfile")
@@ -48,6 +49,7 @@ end
 
 desc "upload versions"
 task :upload => :test do
+  load "./version.rb"
   uploader = GithubUploader.setup_uploader
   GithubUploader.upload_file uploader, "pathology-#{PATHOLOGY_VERSION}.js", "Pathology #{PATHOLOGY_VERSION}", "dist/pathology.js"
   GithubUploader.upload_file uploader, "pathology-#{PATHOLOGY_VERSION}-spade.js", "Pathology #{PATHOLOGY_VERSION} (minispade)", "dist/pathology-spade.js"
@@ -55,31 +57,6 @@ task :upload => :test do
 
   GithubUploader.upload_file uploader, 'pathology-latest.js', "Current Pathology", "dist/pathology.js"
   GithubUploader.upload_file uploader, 'pathology-latest-spade.js', "Current Pathology (minispade)", "dist/pathology-spade.js"
-end
-
-desc "Create json document object"
-task :jsondoc => [:phantomjs, :dist] do
-  cmd = %|phantomjs src/gather-docs.coffee "file://localhost#{File.dirname(__FILE__)}/src/gather-docs.html"|
-
-  err "Running tests"
-  err cmd
-  success = `#{cmd}`
-
-  if success
-    err "Built JSON".green
-    FileUtils.safe_unlink "dist/docs.json"
-    File.open("dist/docs.json", "w") {|f| f.write success }
-  else
-    err "Failed".red
-    exit(1)
-  end
-
-end
-
-task :phantomjs do
-  unless system("which phantomjs > /dev/null 2>&1")
-    abort "PhantomJS is not installed. Download from http://phantomjs.org"
-  end
 end
 
 def exec_test
@@ -124,6 +101,6 @@ task :release, [:version] => :test do |t, args|
   system "git commit -m 'bumped version to #{args[:version]}'"
   system "git tag #{args[:version]}"
   system "git push origin master"
-  system "git push #{args[:version]}"
+  system "git push origin #{args[:version]}"
   Rake::Task[:upload].invoke
 end

@@ -62,6 +62,9 @@ nameWriter = (name, object, container) ->
   for key, value of object
     continue if key is "__super__"
     continue if key is "constructor"
+    continue if key is "prototype"
+    continue if key[0..1] is "__"
+    continue if key[0] is "_"
     continue if value is undefined
     continue if value is null
     if value.constructor is Namespace
@@ -141,11 +144,14 @@ Kernel =
     target
 
   path: ->
-    findNames() if NAMELESS_OBJECTS_EXIST
+    # findNames() if NAMELESS_OBJECTS_EXIST
     @_path().join(".")
 
   _name: ->
-    findNames() if NAMELESS_OBJECTS_EXIST
+    # short circuit name finder if this objects name has been found
+    return @[META_KEY][NAME_KEY] if @[META_KEY][NAME_KEY]
+
+    # findNames() if NAMELESS_OBJECTS_EXIST
     # readMeta this, NAME_KEY
     @[META_KEY][NAME_KEY]
 
@@ -222,6 +228,8 @@ KernelObject =
           else
             @prototype[key] = (first chained)
 
+        @prototype[key].displayName = key
+
       else
         @prototype[key] = value
 
@@ -259,11 +267,8 @@ BootstrapPrototype = extend {}, Kernel,
       @[key] = value.instance(this)
 
   propertiesThatCouldBe: (test) ->
-    hits = []
-    for name, property of @constructor.properties
-      continue unless property.couldBe(test)
-      hits.push @[name]
-    hits
+    names = @constructor.propertiesThatCouldBe(test)
+    @[name] for name in names
 
   toString: ->
     if @inspect
@@ -275,7 +280,23 @@ BootstapStatics = extend {}, Kernel,
   descendants: []
   inheritableAttrs: []
 
+  propertiesThatCouldBe: (test) ->
+    map = @_propertiesThatCouldBe ?= Pathology.Map.new()
+    return hits if hits = map.get(test)
+    hits = []
+    for name, property of @properties
+      continue unless property.couldBe(test)
+      hits.push name
+    map.set test, hits
+
+    hits
+
   instanceMethod: (name) ->
+    for ancestor in @ancestors
+      continue if ancestor is this
+      continue unless ancestor::hasOwnProperty(name)
+      return ancestor.instanceMethod(name) if ancestor::[name] is @::[name]
+
     if @::hasOwnProperty(name)
       {
         name: name
@@ -383,8 +404,30 @@ BootstapStatics = extend {}, Kernel,
     child.open(body) if body and body.call
     return child
 
+  _class: (name, superclass, classbody) ->
+    _class = superclass.extend(classbody)
+    @[name] = _class
+    meta = new Object
+    meta[NAME_KEY] = name
+    meta[CONTAINER_KEY] = this
+    writeMeta _class, meta
+    _class
+
+  _module: (name, modulebody) ->
+    _module = Pathology.Module.extend(modulebody)
+    @[name] = _module
+    meta = new Object
+    meta[NAME_KEY] = name
+    meta[CONTAINER_KEY] = this
+    writeMeta _module, meta
+    _module
+
   # Create an object
   new: ->
+    if window.DEBUG
+      Pathology.refCounts[@path()] ?= 0
+      Pathology.refCounts[@path()] += 1
+
     object = new this()
 
     # skip a lot of calls to nameWriter for object creation.
@@ -395,11 +438,10 @@ BootstapStatics = extend {}, Kernel,
     @prototype.initialize.apply(object, arguments) if @prototype.initialize
     object
 
-
 Bootstrap = inherits new Function, BootstrapPrototype, BootstapStatics
 Bootstrap.pushInheritableItem 'ancestors', Bootstrap
-Bootstrap.property = (name) ->
-  Property.new(name, this)
+Bootstrap.property = (name, options) ->
+  Property.new(name, this, options)
 
 Namespace = Bootstrap.extend ({def}) ->
   def initialize: (name) ->
@@ -417,6 +459,25 @@ Namespace = Bootstrap.extend ({def}) ->
     @[META_KEY][NAME_KEY]
 
   def _readName: ->
+
+  def _class: (name, superclass, classbody) ->
+    _class = superclass.extend(classbody)
+    @[name] = _class
+    meta = new Object
+    meta[NAME_KEY] = name
+    meta[CONTAINER_KEY] = this
+    writeMeta _class, meta
+    _class
+
+  def _module: (name, modulebody) ->
+    _module = Pathology.Module.extend(modulebody)
+    @[name] = _module
+    meta = new Object
+    meta[NAME_KEY] = name
+    meta[CONTAINER_KEY] = this
+    writeMeta _module, meta
+    _module
+
 
 # Bootstrap.inheritableAttr("Modules", [])
 
@@ -449,8 +510,10 @@ Module = Bootstrap.extend ({defs}) ->
     extend @prototype, slots
     for target in @appendedTo ? []
       target.def slots
+      # target.instanceMethod
 
   defs extended: (module) ->
+    return false unless module.ancestors
     (this in module.ancestors) ? false
 
   # No extending/instantiating Modules
@@ -545,13 +608,21 @@ Property.Instance = Bootstrap.extend ({def}) ->
   #     Creates an instance of a property on an instance of an object.
   #   """
 
-  def get: -> @value
+  def get: ->
+    if @options.get
+      @options.get.call(this)
+    else
+      @value
   # @::get.doc =
   #   desc: """
   #     Gets the @value of the property.
   #   """
 
-  def set: (value) -> @value = value
+  def set: (value) ->
+    if @options.set
+      @options.set.call(this, value)
+    else
+      @value = value
   # @::set.doc =
   #   params: [
   #     ["value", "*", true]
@@ -559,7 +630,6 @@ Property.Instance = Bootstrap.extend ({def}) ->
   #   desc: """
   #     Sets the @value of the property.
   #   """
-
 
 HASH_KEY = "_hash"
 Map = Bootstrap.extend ({def}) ->
@@ -766,11 +836,13 @@ Bootstrap.pushInheritableItem "classMethods", "writeInheritableValue"
 Bootstrap.pushInheritableItem "classMethods", "writeInheritableAttr"
 
 window.Pathology = Namespace.new("Pathology")
+Pathology.refCounts = {}
 Pathology.id = id
 Pathology.Object = Bootstrap
 Pathology.readMeta = readMeta
 Pathology.writeMeta = writeMeta
 Pathology.Namespace = Namespace
+Pathology.Namespace.all = Namespaces
 Pathology.Module = Module
 Pathology.Property = Property
 Pathology.Namespaces = Namespaces
