@@ -712,7 +712,7 @@ test "instance methods are shown as defined on the mixin", ->
   equal method.definedOn, "NS.Mixer"
 
 test "overridden instance methods are shown as defined on the class", ->
-  NS.Mixable2 = NS.Mixable.extend ({delegate, include, def, defs}) ->
+  NS._class "Mixable2", NS.Mixable, ({delegate, include, def, defs}) ->
     def instanceKey: "overridden"
 
   method = NS.Mixable2.instanceMethod('instanceKey')

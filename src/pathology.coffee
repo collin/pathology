@@ -107,7 +107,7 @@ findNames = ->
 ctor = ->
 
 # mad props to Backbone.js
-inherits = (parent, protoProps, staticProps) ->
+inherits = (parent, protoProps, staticProps, name) ->
   if protoProps and protoProps.hasOwnProperty('constructor')
     child = protoProps.constructor
   else
@@ -160,7 +160,7 @@ Kernel =
   _readId: -> @[META_KEY].id
 
   _container: ->
-    findNames() if NAMELESS_OBJECTS_EXIST
+    # findNames() if NAMELESS_OBJECTS_EXIST
     # optimize away some readMeta calls
     @[META_KEY][CONTAINER_KEY]
     # readMeta this, CONTAINER_KEY
@@ -383,9 +383,12 @@ BootstapStatics = extend {}, Kernel,
     @__super__.constructor._pushExtension?(extension)
 
   # Extend an object.
-  extend: (body) ->
+  extend: (body, name) ->
     NAMELESS_OBJECTS_EXIST = true
+
+    # name = [@path(), name].join(".") if this[META_KEY]
     child = inherits(this, {})
+
     child[META_KEY] = undefined
     child.inheritableAttrs = clone(@inheritableAttrs)
     for name in @inheritableAttrs
@@ -405,7 +408,7 @@ BootstapStatics = extend {}, Kernel,
     return child
 
   _class: (name, superclass, classbody) ->
-    _class = superclass.extend(classbody)
+    _class = superclass.extend(classbody, name)
     @[name] = _class
     meta = new Object
     meta[NAME_KEY] = name
@@ -414,7 +417,7 @@ BootstapStatics = extend {}, Kernel,
     _class
 
   _module: (name, modulebody) ->
-    _module = Pathology.Module.extend(modulebody)
+    _module = Pathology.Module.extend(modulebody, name)
     @[name] = _module
     meta = new Object
     meta[NAME_KEY] = name
@@ -438,12 +441,12 @@ BootstapStatics = extend {}, Kernel,
     @prototype.initialize.apply(object, arguments) if @prototype.initialize
     object
 
-Bootstrap = inherits new Function, BootstrapPrototype, BootstapStatics
+Bootstrap = inherits new Function, BootstrapPrototype, BootstapStatics, "Pathology.Object"
 Bootstrap.pushInheritableItem 'ancestors', Bootstrap
 Bootstrap.property = (name, options) ->
   Property.new(name, this, options)
 
-Namespace = Bootstrap.extend ({def}) ->
+namespaceDefinition = ({def}) ->
   def initialize: (name) ->
     if name
       Namespaces[name] = this
@@ -454,14 +457,14 @@ Namespace = Bootstrap.extend ({def}) ->
       NAMELESS_OBJECTS_EXIST = true
 
   def name: ->
-    findNames() if NAMELESS_OBJECTS_EXIST
+    # findNames() if NAMELESS_OBJECTS_EXIST
     # readMeta this, NAME_KEY
     @[META_KEY][NAME_KEY]
 
   def _readName: ->
 
   def _class: (name, superclass, classbody) ->
-    _class = superclass.extend(classbody)
+    _class = superclass.extend(classbody, name)
     @[name] = _class
     meta = new Object
     meta[NAME_KEY] = name
@@ -470,7 +473,7 @@ Namespace = Bootstrap.extend ({def}) ->
     _class
 
   def _module: (name, modulebody) ->
-    _module = Pathology.Module.extend(modulebody)
+    _module = Pathology.Module.extend(modulebody, name)
     @[name] = _module
     meta = new Object
     meta[NAME_KEY] = name
@@ -478,10 +481,12 @@ Namespace = Bootstrap.extend ({def}) ->
     writeMeta _module, meta
     _module
 
+Namespace = Bootstrap.extend namespaceDefinition, "Pathology.Namespace"
+
 
 # Bootstrap.inheritableAttr("Modules", [])
 
-Module = Bootstrap.extend ({defs}) ->
+moduleDefinition = ({defs}) ->
   defs appendFeatures: (target) ->
     @appendedTo ?= []
     @appendedTo.push target
@@ -517,9 +522,12 @@ Module = Bootstrap.extend ({defs}) ->
     (this in module.ancestors) ? false
 
   # No extending/instantiating Modules
-  defs extend: (body) ->
+  defs extend: (body, name) ->
     NAMELESS_OBJECTS_EXIST = true
+
+    # name = [@path(), name].join(".") if this[META_KEY]
     child = inherits(this, {})
+
     child[META_KEY] = undefined
     child.inheritableAttrs = clone(@inheritableAttrs)
     for name in @inheritableAttrs
@@ -540,7 +548,9 @@ Module = Bootstrap.extend ({defs}) ->
 
   defs new: undefined
 
-Property = Bootstrap.extend ({def}) ->
+Module = Bootstrap.extend moduleDefinition, "Pathology.Module"
+
+propertyDefinition = ({def}) ->
 
   def initialize: (@name, @_constructor, @options={}) ->
     @options.name = @name
@@ -586,7 +596,9 @@ Property = Bootstrap.extend ({def}) ->
   #
   #   """
 
-Property.Instance = Bootstrap.extend ({def}) ->
+Property = Bootstrap.extend propertyDefinition, "Pathology.Property"
+
+instanceDefinition = ({def}) ->
   def inspect: ->
     " #{@options.name}: #{@get?()} @object: #{@object}"
   # @::inspect.doc =
@@ -631,8 +643,10 @@ Property.Instance = Bootstrap.extend ({def}) ->
   #     Sets the @value of the property.
   #   """
 
+Property.Instance = Bootstrap.extend instanceDefinition, "Pathology.Property.Instance"
+
 HASH_KEY = "_hash"
-Map = Bootstrap.extend ({def}) ->
+mapDefinition = ({def}) ->
   def initialize: (@default=(->)) ->
     @map = {}
     @keyMap = {}
@@ -678,6 +692,7 @@ Map = Bootstrap.extend ({def}) ->
 
   def each: (fn) ->
     for key, value of @map
+      continue unless value
       hash = @hash(key)
       fn @keyMap[hash], @map[hash]
   # @::each.doc =
@@ -759,8 +774,11 @@ Map = Bootstrap.extend ({def}) ->
   #     This is neccessary so we can use arbitrary objects as keys in the object.
   #   """
 
+Map = Bootstrap.extend mapDefinition, "Pathology.Map"
+
+
 # TODO: implement Map on an Array to allow for set operations.
-Set = Map.extend ({def}) ->
+setDefinition = ({def}) ->
   def add: (item) ->
     @set(item, item)
   # @::add.doc =
@@ -816,6 +834,7 @@ Set = Map.extend ({def}) ->
   #     Removes all items from the Set.
   #   """
 
+Set = Map.extend setDefinition, "Pathology.Set"
 
 writeMeta Namespace, _name: "Namespace"
 writeMeta Module, _name: "Module"
@@ -823,6 +842,7 @@ writeMeta Property, _name: "Property"
 writeMeta Property.Instance, _name: "Instance"
 writeMeta Map, _name: "Map"
 writeMeta Set, _name: "Set"
+writeMeta Bootstrap, _name: "Object"
 
 Bootstrap.pushInheritableItem "classMethods", "def"
 Bootstrap.pushInheritableItem "classMethods", "defs"
@@ -836,6 +856,15 @@ Bootstrap.pushInheritableItem "classMethods", "writeInheritableValue"
 Bootstrap.pushInheritableItem "classMethods", "writeInheritableAttr"
 
 window.Pathology = Namespace.new("Pathology")
+
+writeMeta Namespace, _container: Pathology
+writeMeta Module, _container: Pathology
+writeMeta Property, _container: Pathology
+writeMeta Property.Instance, _container: Pathology
+writeMeta Map, _container: Pathology
+writeMeta Set, _container: Pathology
+writeMeta Bootstrap, _container: Pathology
+
 Pathology.refCounts = {}
 Pathology.id = id
 Pathology.Object = Bootstrap
