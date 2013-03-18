@@ -386,8 +386,8 @@ BootstapStatics = extend {}, Kernel,
   extend: (body, name) ->
     NAMELESS_OBJECTS_EXIST = true
 
-    # name = [@path(), name].join(".") if this[META_KEY]
-    child = inherits(this, {})
+    name = [@path(), name].join(".") if this[META_KEY]
+    child = inherits(this, {}, null, name)
 
     child[META_KEY] = undefined
     child.inheritableAttrs = clone(@inheritableAttrs)
@@ -440,6 +440,8 @@ BootstapStatics = extend {}, Kernel,
     object._createProperties()
     @prototype.initialize.apply(object, arguments) if @prototype.initialize
     object
+
+window.Pathology = {}
 
 Bootstrap = inherits new Function, BootstrapPrototype, BootstapStatics, "Pathology.Object"
 Bootstrap.pushInheritableItem 'ancestors', Bootstrap
@@ -525,8 +527,8 @@ moduleDefinition = ({defs}) ->
   defs extend: (body, name) ->
     NAMELESS_OBJECTS_EXIST = true
 
-    # name = [@path(), name].join(".") if this[META_KEY]
-    child = inherits(this, {})
+    name = [@path(), name].join(".") if this[META_KEY]
+    child = inherits(this, {}, null, name)
 
     child[META_KEY] = undefined
     child.inheritableAttrs = clone(@inheritableAttrs)
